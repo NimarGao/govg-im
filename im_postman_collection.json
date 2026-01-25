@@ -1,0 +1,45 @@
+{
+	"info": {
+		"_postman_id": "im-system-websocket",
+		"name": "IM System WebSocket",
+		"description": "WebSocket API collection for IM System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "IM WebSocket Connection",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "ws://127.0.0.1:9001/ws",
+					"protocol": "ws",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "9001",
+					"path": [
+						"ws"
+					]
+				},
+				"description": "Main WebSocket connection endpoint. Use the examples below as payloads."
+			},
+			"response": []
+		}
+	],
+    "variable": [
+        {
+            "key": "Login Payload",
+            "value": "{\"command\": 1, \"username\": \"user1\", \"password\": \"pwd\"}",
+            "type": "string"
+        },
+        {
+            "key": "Send Message Payload",
+            "value": "{\"command\": 3, \"toUserId\": \"TARGET_ID\", \"message\": \"Hello\", \"msgId\": \"UUID\"}",
+            "type": "string"
+        }
+    ]
+}

@@ -1,0 +1,59 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: im-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: im_db
+      MYSQL_TZ: Asia/Shanghai
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+
+  redis:
+    image: redis:6.2
+    container_name: im-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes
+
+  rabbitmq:
+    image: rabbitmq:3.9-management
+    container_name: im-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  zookeeper:
+    image: zookeeper:3.7
+    container_name: im-zookeeper
+    ports:
+      - "2181:2181"
+
+  im-server:
+    build: .
+    container_name: im-server
+    ports:
+      - "10085:10085"
+      - "10086:10086"
+      - "10087:10087"
+    environment:
+      MYSQL_HOST: im-mysql
+      REDIS_HOST: im-redis
+      RABBITMQ_HOST: im-rabbitmq
+      RABBITMQ_ENABLED: "true"
+      ZOOKEEPER_HOST: im-zookeeper
+      ZOOKEEPER_ENABLED: "true"
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+      - zookeeper

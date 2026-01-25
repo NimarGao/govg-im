@@ -1,0 +1,39 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Project Specific
+uploads/
+logs/
+im-system-*.jar
+
+# Frontend (Uniapp / Node)
+node_modules/
+unpackage/
+dist/
+npm-debug.log
+yarn-error.log
+.hbuilderx/

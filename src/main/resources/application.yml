@@ -1,0 +1,38 @@
+server:
+  port: 10085
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/im_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    database: 0
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        auto-startup: ${RABBITMQ_ENABLED:false}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+im:
+  server:
+    port: 10086
+    websocket-port: 10087
+  upload:
+    path: ./uploads
+    url-prefix: /uploads
+  zookeeper:
+    enabled: ${ZOOKEEPER_ENABLED:false}
+    connect-string: ${ZOOKEEPER_HOST:localhost}:${ZOOKEEPER_PORT:2181}
+    session-timeout: 5000
