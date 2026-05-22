@@ -11,36 +11,91 @@
       <input class="glass-search" v-model="searchQuery" placeholder="搜索会话..." />
     </div>
 
-    <!-- Horizontal Active Friends Scroll Rail (Facebook Messenger style) -->
-    <div class="active-friends-rail">
+    <!-- Instagram Stories Horizontal scroll rail -->
+    <div class="ins-stories-rail">
       <div class="active-friend-item" v-for="friend in friendList" :key="friend.id" @click="$emit('start-chat-with', friend.id)">
-        <div class="active-friend-avatar">
-          <span class="friend-letter">{{ friend.name[0].toUpperCase() }}</span>
-          <span class="online-indicator-dot" :class="{ active: friend.online }"></span>
+        <div class="ins-story-avatar-ring" :class="{ 'has-story': friend.online }">
+          <div class="ins-story-avatar-spacer">
+            <div class="ins-story-avatar-inner font-bold">
+              {{ friend.name[0].toUpperCase() }}
+            </div>
+          </div>
+          <span v-if="friend.online" class="online-indicator-dot" :class="friend.statusType || 'online'"></span>
         </div>
         <span class="active-friend-name">{{ friend.name.split(' ')[0] }}</span>
       </div>
     </div>
 
     <div class="list-scroll-view">
-      <div v-if="filteredSessions.length === 0" class="empty-list-tip">暂无活动会话</div>
-      <div v-for="(session, index) in filteredSessions" :key="index" 
-          class="session-glass-card" :class="{ active: currentSession && currentSession.id === session.id }"
-          @click="$emit('open-chat', session)">
-        <div class="avatar-circle">
-          {{ session.name[0].toUpperCase() }}
-          <span class="online-indicator active"></span>
+      <!-- Always-pinned 智能客服 entry -->
+      <div id="session-card-service-bot"
+          class="session-glass-card service-bot-card"
+          :class="{ active: currentSession && currentSession.id === 'service_bot' }"
+          @click="$emit('open-chat', { id: 'service_bot', name: '智能客服', type: 'user' })">
+        <div class="ins-story-avatar-ring has-story service-bot-ring">
+          <div class="ins-story-avatar-spacer">
+            <div class="ins-story-avatar-inner font-bold service-bot-avatar">
+              🤖
+            </div>
+          </div>
         </div>
         <div class="session-info">
           <div class="session-header-row">
-            <span class="session-name">{{ session.name }}</span>
+            <span class="session-name">
+              智能客服
+              <span class="service-bot-badge">AI</span>
+            </span>
+            <span class="session-time">24/7</span>
+          </div>
+          <div class="session-body-row">
+            <span class="session-preview">点我开始咨询 👋</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="filteredSessions.filter(s => s.id !== 'service_bot').length === 0 && sessions.length === 0" class="empty-list-tip">暂无其他活动会话</div>
+      <div v-for="(session, index) in filteredSessions.filter(s => s.id !== 'service_bot')" :key="index" 
+          class="session-glass-card" :class="{ active: currentSession && currentSession.id === session.id, pinned: session.isPinned }"
+          @click="$emit('open-chat', session)"
+          @contextmenu.prevent="openSessionContextMenu($event, session)">
+        <!-- Stories-style Avatar Ring for Sessions -->
+        <div class="ins-story-avatar-ring session-avatar-ring" :class="{ 'has-story': isOnline(session) }">
+          <div class="ins-story-avatar-spacer">
+            <div class="ins-story-avatar-inner font-bold">
+              {{ session.name[0].toUpperCase() }}
+            </div>
+          </div>
+          <span class="online-indicator" v-if="isOnline(session)" :class="getStatusType(session) || 'online'"></span>
+        </div>
+        <div class="session-info">
+          <div class="session-header-row">
+            <span class="session-name">
+              {{ session.name }}
+              <span v-if="isOnline(session) && getStatusText(session)" class="session-signature-tag animate-pop" :title="getStatusText(session)">
+                {{ getStatusText(session) }}
+              </span>
+              <span v-if="session.isPinned" style="font-size: 11px; margin-left: 4px;" title="置顶会话">📌</span>
+            </span>
             <span class="session-time">{{ session.time }}</span>
           </div>
           <div class="session-body-row">
-            <span class="session-preview">{{ session.lastMsg }}</span>
-            <div v-if="session.unread > 0" class="unread-bubble">{{ session.unread }}</div>
+            <span class="session-preview" v-if="session.draft">
+              <span style="color: #ff9f0a; font-weight: 600;">[草稿] </span>
+              <span style="color: var(--text-title);">{{ session.draft }}</span>
+            </span>
+            <span class="session-preview" v-else>{{ session.lastMsg }}</span>
+            <!-- Instagram classic unread blue dot -->
+            <div v-if="session.unread > 0" class="ins-unread-blue-dot" title="未读消息"></div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ================= SESSION CONTEXT MENU ================= -->
+    <div v-if="contextMenu.show && contextMenu.session" class="custom-context-menu" 
+         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
+      <div class="context-menu-item" @click="togglePin(contextMenu.session)">
+        {{ contextMenu.session.isPinned ? '📌 取消置顶' : '📌 置顶该会话' }}
       </div>
     </div>
 
@@ -89,21 +144,80 @@ export default {
     'show-create-group',
     'show-start-chat',
     'start-chat-with',
-    'update:showFabMenu'
+    'update:showFabMenu',
+    'toggle-pin'
   ],
   data() {
     return {
-      searchQuery: ''
+      searchQuery: '',
+      contextMenu: {
+        show: false,
+        x: 0,
+        y: 0,
+        session: null
+      }
     };
   },
   computed: {
     filteredSessions() {
-      if (!this.searchQuery) return this.sessions;
-      const query = this.searchQuery.toLowerCase();
-      return this.sessions.filter(session => 
-        session.name.toLowerCase().includes(query) || 
-        (session.lastMsg && session.lastMsg.toLowerCase().includes(query))
-      );
+      let result = this.sessions;
+      if (this.searchQuery) {
+        const query = this.searchQuery.toLowerCase();
+        result = this.sessions.filter(session => 
+          session.name.toLowerCase().includes(query) || 
+          (session.lastMsg && session.lastMsg.toLowerCase().includes(query))
+        );
+      }
+      return [...result].sort((a, b) => {
+        const aPinned = a.isPinned ? 1 : 0;
+        const bPinned = b.isPinned ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+        return 0;
+      });
+    }
+  },
+  methods: {
+    openSessionContextMenu(e, session) {
+      if (!session) return;
+      e.preventDefault();
+      
+      this.contextMenu = {
+        show: true,
+        x: e.clientX || 200,
+        y: e.clientY || 200,
+        session: session
+      };
+      
+      const closeMenu = () => {
+        this.contextMenu.show = false;
+        document.removeEventListener('click', closeMenu);
+      };
+      setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+      }, 10);
+    },
+    togglePin(session) {
+      this.$emit('toggle-pin', session);
+      this.contextMenu.show = false;
+    },
+    getMatchingFriend(session) {
+      if (session.type !== 'user') return null;
+      return this.friendList.find(f => f.id === session.id);
+    },
+    isOnline(session) {
+      if (session.type !== 'user') return true; // Groups are always online in this UI
+      const f = this.getMatchingFriend(session);
+      return f ? f.online : false;
+    },
+    getStatusType(session) {
+      if (session.type !== 'user') return 'online';
+      const f = this.getMatchingFriend(session);
+      return f ? (f.statusType || 'online') : 'offline';
+    },
+    getStatusText(session) {
+      if (session.type !== 'user') return '';
+      const f = this.getMatchingFriend(session);
+      return f ? f.statusText : '';
     }
   }
 };
@@ -173,17 +287,17 @@ export default {
     color: var(--input-placeholder);
   }
 
-  /* Active Friends Rail */
-  .active-friends-rail {
+  /* Instagram Stories Horizontal scroll rail */
+  .ins-stories-rail {
     display: flex;
     gap: 16px;
-    padding: 4px 20px 16px 20px;
+    padding: 10px 20px 16px 20px;
     overflow-x: auto;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 8px;
     flex-shrink: 0;
   }
-  .active-friends-rail::-webkit-scrollbar {
+  .ins-stories-rail::-webkit-scrollbar {
     display: none;
   }
 
@@ -193,45 +307,77 @@ export default {
     align-items: center;
     gap: 6px;
     cursor: pointer;
-    width: 56px;
+    width: 60px;
     flex-shrink: 0;
   }
 
-  .active-friend-avatar {
+  /* 3-layer Instagram Stories avatar ring */
+  .ins-story-avatar-ring {
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    background: var(--btn-hover);
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    color: var(--active-blue);
-    font-size: 16px;
-    transition: transform 0.2s ease;
+    box-sizing: border-box;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    padding: 2.5px;
   }
-  .active-friend-item:hover .active-friend-avatar {
-    transform: scale(1.04);
+  .ins-story-avatar-ring.has-story {
+    background: var(--ins-gradient);
   }
-
-  .friend-letter {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  .ins-story-avatar-spacer {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--bg-board); /* Spacer layer */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    box-sizing: border-box;
+  }
+  .ins-story-avatar-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3897f0 0%, #a800e6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    box-sizing: border-box;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .active-friend-item:hover .ins-story-avatar-ring {
+    transform: scale(1.06);
+  }
+  .ins-story-avatar-ring.has-story:hover {
+    animation: rotateStoryRing 4s linear infinite;
+  }
+  @keyframes rotateStoryRing {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
   }
 
   .online-indicator-dot {
     position: absolute;
-    bottom: 2px;
-    right: 2px;
+    bottom: 1px;
+    right: 1px;
     width: 11px;
     height: 11px;
     border-radius: 50%;
-    background: #bcc0c4;
-    border: 2px solid var(--bg-middle);
-  }
-  .online-indicator-dot.active {
     background: var(--active-green);
+    border: 2px solid var(--bg-board);
+    transition: all 0.3s ease;
   }
+  .online-indicator-dot.busy { background: #ff9f0a; }
+  .online-indicator-dot.away { background: #ffd60a; }
+  .online-indicator-dot.offline { display: none; }
 
   .active-friend-name {
     font-size: 12px;
@@ -286,6 +432,73 @@ export default {
     color: #ffffff;
     position: relative;
     flex-shrink: 0;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+
+  /* Service Bot Avatar special styling */
+  .service-bot-card {
+    background: linear-gradient(135deg, rgba(0, 212, 170, 0.06) 0%, rgba(0, 132, 255, 0.06) 100%) !important;
+    border: 1px solid rgba(0, 212, 170, 0.2) !important;
+    margin: 4px 8px !important;
+  }
+  .service-bot-card:hover {
+    background: linear-gradient(135deg, rgba(0, 212, 170, 0.12) 0%, rgba(0, 132, 255, 0.12) 100%) !important;
+  }
+  .service-bot-card.active {
+    background: linear-gradient(135deg, rgba(0, 212, 170, 0.16) 0%, rgba(0, 132, 255, 0.16) 100%) !important;
+    border-color: rgba(0, 212, 170, 0.4) !important;
+  }
+
+  .service-bot-avatar {
+    background: linear-gradient(135deg, #00d4aa 0%, #0084ff 100%) !important;
+    font-size: 22px;
+    box-shadow: 0 0 16px rgba(0, 212, 170, 0.5), 0 0 32px rgba(0, 132, 255, 0.3);
+    border-color: #00d4aa !important;
+    animation: servicebot-glow 2.5s ease-in-out infinite;
+  }
+  @keyframes servicebot-glow {
+    0%, 100% { box-shadow: 0 0 16px rgba(0, 212, 170, 0.5), 0 0 32px rgba(0, 132, 255, 0.3); }
+    50% { box-shadow: 0 0 24px rgba(0, 212, 170, 0.8), 0 0 48px rgba(0, 132, 255, 0.5); }
+  }
+
+  .service-bot-glow-ring {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 212, 170, 0.4);
+    animation: ring-pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes ring-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.06); }
+  }
+
+  .service-bot-badge {
+    font-size: 9px;
+    background: linear-gradient(135deg, #00d4aa, #0084ff);
+    color: #fff;
+    font-weight: 800;
+    border-radius: 4px;
+    padding: 1px 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .avatar-circle.online {
+    box-shadow: 0 0 8px rgba(48, 209, 88, 0.5);
+    border-color: #30d158;
+  }
+  .avatar-circle.busy {
+    box-shadow: 0 0 8px rgba(255, 159, 10, 0.5);
+    border-color: #ff9f0a;
+  }
+  .avatar-circle.away {
+    box-shadow: 0 0 8px rgba(255, 214, 10, 0.5);
+    border-color: #ffd60a;
+  }
+  .avatar-circle.offline {
+    box-shadow: none;
+    border-color: transparent;
   }
 
   .online-indicator {
@@ -297,6 +510,20 @@ export default {
     border-radius: 50%;
     background: var(--active-green);
     border: 2px solid var(--bg-sidebar);
+    transition: all 0.3s ease;
+  }
+
+  .online-indicator.online {
+    background: #30d158;
+  }
+  .online-indicator.busy {
+    background: #ff9f0a;
+  }
+  .online-indicator.away {
+    background: #ffd60a;
+  }
+  .online-indicator.offline {
+    background: #bcc0c4;
   }
 
   .session-info {
@@ -309,6 +536,7 @@ export default {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 4px;
+    min-width: 0;
   }
 
   .session-name {
@@ -318,11 +546,32 @@ export default {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .session-signature-tag {
+    font-size: 10px;
+    color: #ffd60a;
+    font-style: italic;
+    background: rgba(255, 214, 10, 0.12);
+    border: 1px solid rgba(255, 214, 10, 0.25);
+    border-radius: 4px;
+    padding: 1px 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
   }
 
   .session-time {
     font-size: 12px;
     color: var(--text-desc);
+    margin-left: 8px;
+    flex-shrink: 0;
   }
 
   .session-body-row {
@@ -341,18 +590,15 @@ export default {
     margin-right: 8px;
   }
 
-  .unread-bubble {
-    background: var(--active-blue);
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: bold;
-    min-width: 18px;
-    height: 18px;
-    line-height: 18px;
-    border-radius: 9px;
-    text-align: center;
-    padding: 0 4px;
-    box-sizing: border-box;
+  .ins-unread-blue-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #0095f6;
+    box-shadow: 0 0 6px #0095f6;
+    margin-right: 8px;
+    flex-shrink: 0;
+    align-self: center;
   }
 
   /* Floating Action Button (Messenger Style) */
@@ -459,5 +705,59 @@ export default {
   .fab-submenu-item:hover .fab-submenu-label {
     opacity: 1;
     transform: translateX(0);
+  }
+
+  /* Pinned and Context Menu Styles */
+  .session-glass-card.pinned {
+    background: rgba(0, 132, 255, 0.04);
+    border-left: 3px solid var(--active-blue);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+  
+  .custom-context-menu {
+    position: fixed;
+    z-index: 10000;
+    min-width: 150px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-premium);
+    backdrop-filter: blur(20px);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transform-origin: top left;
+    animation: contextFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes contextFadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .context-menu-item:hover {
+    background-color: var(--btn-hover);
+  }
+
+  .animate-pop {
+    animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  @keyframes pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
   }
 </style>

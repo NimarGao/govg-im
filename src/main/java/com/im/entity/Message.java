@@ -26,4 +26,8 @@ public class Message implements Serializable {
     private String quoteMsgId;
     private String quoteSender;
     private String quoteContent;
+
+    // Reactions field (transient, not in DB)
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private java.util.Map<String, java.util.List<java.util.Map<String, String>>> reactions;
 }

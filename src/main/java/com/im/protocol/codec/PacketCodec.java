@@ -43,6 +43,36 @@ public class PacketCodec {
         packetTypeMap.put(Command.GROUP_READ_RECEIPT_REQUEST, GroupReadReceiptRequestPacket.class);
         packetTypeMap.put(Command.GROUP_READ_RECEIPT_RESPONSE, GroupReadReceiptResponsePacket.class);
 
+        // Emoji Reactions
+        packetTypeMap.put(Command.MESSAGE_REACTION_REQUEST, MessageReactionRequestPacket.class);
+        packetTypeMap.put(Command.MESSAGE_REACTION_RESPONSE, MessageReactionResponsePacket.class);
+
+        // Voice/Video Call Signaling
+        packetTypeMap.put(Command.VOICE_CALL_REQUEST, VoiceCallRequestPacket.class);
+        packetTypeMap.put(Command.VOICE_CALL_RESPONSE, VoiceCallResponsePacket.class);
+
+        // User Status
+        packetTypeMap.put(Command.USER_STATUS_REQUEST, UserStatusRequestPacket.class);
+        packetTypeMap.put(Command.USER_STATUS_RESPONSE, UserStatusResponsePacket.class);
+
+        // Content Auditing
+        packetTypeMap.put(Command.AUDIT_CONFIG_REQUEST, AuditConfigRequestPacket.class);
+        packetTypeMap.put(Command.AUDIT_CONFIG_RESPONSE, AuditConfigResponsePacket.class);
+
+        // Customer Desk Service
+        packetTypeMap.put(Command.CUSTOM_DESK_REQUEST, DeskRequestPacket.class);
+        packetTypeMap.put(Command.CUSTOM_DESK_RESPONSE, DeskResponsePacket.class);
+
+        // Multi Voice Call (TUIRoomKit)
+        packetTypeMap.put(Command.MULTI_VOICE_CALL_REQUEST, MultiVoiceCallRequestPacket.class);
+        packetTypeMap.put(Command.MULTI_VOICE_CALL_RESPONSE, MultiVoiceCallResponsePacket.class);
+
+        // Friend / Relation Chain (TUIContact)
+        packetTypeMap.put(Command.FRIEND_ADD_REQUEST, FriendAddRequestPacket.class);
+        packetTypeMap.put(Command.FRIEND_ADD_RESPONSE, FriendAddResponsePacket.class);
+        packetTypeMap.put(Command.RELATION_ACTION_REQUEST, RelationActionRequestPacket.class);
+        packetTypeMap.put(Command.RELATION_ACTION_RESPONSE, RelationActionResponsePacket.class);
+
         serializerMap = new HashMap<>();
         Serializer serializer = new Serializer.JSONSerializer();
         serializerMap.put(serializer.getSerializerAlgorithm(), serializer);

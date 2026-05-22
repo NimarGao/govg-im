@@ -65,6 +65,14 @@ public class NettyWebSocketServer {
                         ch.pipeline().addLast(RecallRequestHandler.INSTANCE);
                         ch.pipeline().addLast(EditRequestHandler.INSTANCE);
                         ch.pipeline().addLast(GroupReadReceiptRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(MessageReactionRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(VoiceCallRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(UserStatusRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(AuditConfigRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(DeskRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(MultiVoiceCallRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(FriendAddRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(RelationActionRequestHandler.INSTANCE);
                     }
                 });
 
@@ -111,6 +119,30 @@ public class NettyWebSocketServer {
                 packet = json.toJavaObject(EditRequestPacket.class);
             } else if (Command.GROUP_READ_RECEIPT_REQUEST.equals(command)) {
                 packet = json.toJavaObject(GroupReadReceiptRequestPacket.class);
+            } else if (Command.MESSAGE_REACTION_REQUEST.equals(command)) {
+                packet = json.toJavaObject(MessageReactionRequestPacket.class);
+            } else if (Command.VOICE_CALL_REQUEST.equals(command)) {
+                packet = json.toJavaObject(VoiceCallRequestPacket.class);
+            } else if (Command.VOICE_CALL_RESPONSE.equals(command)) {
+                packet = json.toJavaObject(VoiceCallResponsePacket.class);
+            } else if (Command.USER_STATUS_REQUEST.equals(command)) {
+                packet = json.toJavaObject(UserStatusRequestPacket.class);
+            } else if (Command.USER_STATUS_RESPONSE.equals(command)) {
+                packet = json.toJavaObject(UserStatusResponsePacket.class);
+            } else if (Command.AUDIT_CONFIG_REQUEST.equals(command)) {
+                packet = json.toJavaObject(AuditConfigRequestPacket.class);
+            } else if (Command.AUDIT_CONFIG_RESPONSE.equals(command)) {
+                packet = json.toJavaObject(AuditConfigResponsePacket.class);
+            } else if (Command.CUSTOM_DESK_REQUEST.equals(command)) {
+                packet = json.toJavaObject(DeskRequestPacket.class);
+            } else if (Command.CUSTOM_DESK_RESPONSE.equals(command)) {
+                packet = json.toJavaObject(DeskResponsePacket.class);
+            } else if (Command.MULTI_VOICE_CALL_REQUEST.equals(command)) {
+                packet = json.toJavaObject(MultiVoiceCallRequestPacket.class);
+            } else if (Command.FRIEND_ADD_REQUEST.equals(command)) {
+                packet = json.toJavaObject(FriendAddRequestPacket.class);
+            } else if (Command.RELATION_ACTION_REQUEST.equals(command)) {
+                packet = json.toJavaObject(RelationActionRequestPacket.class);
             }
 
             if (packet != null) {

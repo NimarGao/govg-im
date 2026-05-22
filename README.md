@@ -8,16 +8,39 @@
 *   **双协议支持**:
     *   **TCP**: 自定义二进制协议，高性能，适合原生客户端。
     *   **WebSocket**: 标准 WS 协议，适合 Web/H5/Uniapp 接入。
-*   **全功能聊天**:
-    *   **单聊**: 点对点消息即时投递。
-    *   **群聊**: 创建群、加入群、群消息广播。
-    *   **多媒体**: 支持图片上传与发送。
-*   **高可靠性**:
-    *   **ACK 机制**: 应用层消息确认，防止消息丢失。
-    *   **心跳检测**: 自动检测并断开无效连接。
-*   **Web 增强**:
-    *   **CORS**: 完善的跨域配置 (`GlobalCorsFilter`)，支持前后端分离开发。
-    *   **静态资源映射**: 自动映射上传目录，支持图片直链访问。
+*   **分布式服务化升级 (IM-as-a-Service)**:
+    *   支持跨物理实例路由广播、Redis Pub/Sub 单聊广播。
+    *   全局用户在线状态即时探测与物理实例定位。
+    *   长连接 Token 二次鉴权安全闭环与全局 Redis Session 挂钩。
+*   **高可靠性与消息高级功能**:
+    *   **指数退避重连**: 指数级退避弱网断线自动重连算法。
+    *   **离线收纳箱 (Offline Hub)**: 智能离线消息全局 Redis 挂起并于登录时无感原装下发。
+    *   **已读双勾与已读回执**: 捕获已读回执实现高保真双勾，群聊气泡提供 `X人已读` 浮窗及真实已读名单。
+    *   **撤回与编辑**: 2 分钟双向平滑撤回（移除指示器并替换为系统灰字）及二次编辑（`已编辑` 标志）。
+    *   **引用与 Thread 回复**: Aa 输入框上预览，引用气泡高斯模糊卡片及点击平滑滚动高亮定位。
+*   **社交微交互与富媒体卡片 (TIMCustomElem)**:
+    *   支持对消息进行六大表情回应（👍 ❤️ 😂 😮 😢 🙏），支持表情小药丸聚合、多人投票 Tooltip。
+    *   支持分享名片 (User Card)、商品卡片 (Product Card) 精美卡片渲染与测试沙盒推送。
+*   **音视频通话与多人会议 (TUICallKit / TUIRoomKit)**:
+    *   一对一音视频通话（Redis 占线锁保护、高斯拉丝呼叫舱 `TUICallOverlay`、Canvas 动效正弦波）。
+    *   多人会议协同舱（`TUIMeetingOverlay`、2x2 高斯网络、Canvas 动态声纹呼吸灯）。
+*   **内容安全过滤与审核引擎 (AC 自动机)**:
+    *   内置高性能 AC 自动机及 Trie 树，支持在线热重构词库及配置模式（MASK / BLOCK）。
+    *   若触发阻断规则，强行拦截发送，前端捕获后消息气泡剧烈颤抖并以红色警告警示。
+*   **离线推送与系统级 Web Notification 通知总线**:
+    *   系统级 HTML5 浏览器 Notification 消息总线及 TIMPush 可视化离线推送控制中心。
+*   **智能客服与分流评价系统 (TIMDesk)**:
+    *   固定客服入口（呼吸光环），FAQ 机器人富文本互动，5 星流光评价卡片交互流。
+    *   客服席位繁忙度最少连接数分流，无感由 Bot 专员转换过渡到客服人工席位。
+*   **关系链与黑名单拦截 (TUIContact)**:
+    *   好友添加、红点提示、玻璃盒申请审批列表。在捕获拉黑 `5002` 错误包时实时拦截并阻断发信。
+*   **Instagram 像素级 UI/UX 体验重塑**:
+    *   **全局配色与品牌登录**: HSL-like 配色、Grand Hotel 艺术 Logo 登录页、灰色四角胶囊表单及流光登录按钮。
+    *   **极简导航栏与 3 层故事环**: Ins Outline 导航栏图标，头像嵌套 3 层 Stories 彩虹极光圈及 Hover 旋转特效。
+    *   **横滑故事轨与未读蓝点**: 会话顶部横滑故事流轨，未读消息换装为高亮发光未读圆点 (`#0095f6`)。
+    *   **Direct 渐变非对称气泡**: 消息气泡他人左下角变直薄边框，自发右下角变直并应用 Ins 签名渐变。
+    *   **Direct 胶囊输入栏**: 饱满灰色高圆角胶囊输入框，输入字符时多媒体健半透明淡化，胶囊外浮现亮蓝“发送”纯文字按钮。
+    *   **拉黑专属警告框**: 捕获 `5002` 时，本地气泡剧烈颤抖，屏幕中央弹起高精仿 Ins 原生单线分割确定警告框。
 
 ## 🛠️ 技术栈
 
@@ -98,6 +121,32 @@ location / {
 | 11 | 群聊消息 | `GroupMessageRequestPacket` |
 | 12 | 群聊响应 | `GroupMessageResponsePacket` |
 | 13 | ACK 确认 | `AckPacket` |
+| 16 | 已读回执请求 | `ReadReceiptRequestPacket` |
+| 17 | 已读回执响应 | `ReadReceiptResponsePacket` |
+| 18 | 正在输入请求 | `TypingRequestPacket` |
+| 19 | 正在输入响应 | `TypingResponsePacket` |
+| 21 | 撤回消息请求 | `RecallRequestPacket` |
+| 22 | 撤回消息响应 | `RecallResponsePacket` |
+| 26 | 编辑消息请求 | `EditRequestPacket` |
+| 27 | 编辑消息响应 | `EditResponsePacket` |
+| 28 | 群已读请求 | `GroupReadReceiptRequestPacket` |
+| 29 | 群已读响应 | `GroupReadReceiptResponsePacket` |
+| 30 | 表情回应请求 | `MessageReactionRequestPacket` |
+| 31 | 表情回应响应 | `MessageReactionResponsePacket` |
+| 40 | 音视频通话请求 | `VoiceCallRequestPacket` |
+| 41 | 音视频通话响应 | `VoiceCallResponsePacket` |
+| 42 | 用户状态订阅请求 | `UserStatusRequestPacket` |
+| 43 | 用户状态订阅响应 | `UserStatusResponsePacket` |
+| 44 | 审核配置热重构请求 | `AuditConfigRequestPacket` |
+| 45 | 审核配置热重构响应 | `AuditConfigResponsePacket` |
+| 46 | 智能客服与分流请求 | `DeskRequestPacket` |
+| 47 | 智能客服与分流响应 | `DeskResponsePacket` |
+| 48 | 多人视频会议请求 | `MultiVoiceCallRequestPacket` |
+| 49 | 多人视频会议响应 | `MultiVoiceCallResponsePacket` |
+| 50 | 好友添加申请请求 | `FriendAddRequestPacket` |
+| 51 | 好友添加申请响应 | `FriendAddResponsePacket` |
+| 52 | 好友关系/黑名单操作请求 | `RelationActionRequestPacket` |
+| 53 | 好友关系/黑名单操作响应 | `RelationActionResponsePacket` |
 
 ## 📁 目录说明
 *   `com.im.server`: Netty 服务端核心逻辑 (Handler, Channel, ServerBootstrap)

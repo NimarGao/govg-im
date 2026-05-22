@@ -21,6 +21,28 @@ public class GroupMessageRequestHandler extends SimpleChannelInboundHandler<Grou
         // 1. Get info
         String groupId = requestPacket.getToGroupId();
         Session session = SessionUtil.getSession(ctx.channel());
+        String originalContent = requestPacket.getMessage();
+
+        // 1.5. Content Auditing Filter Check
+        if (originalContent != null && !originalContent.trim().isEmpty()) {
+            com.im.util.SensitiveWordFilter.FilterResult filterResult = com.im.util.SensitiveWordFilter.INSTANCE.filter(originalContent);
+            if (filterResult.isHasSensitiveWord()) {
+                String policy = com.im.util.SensitiveWordFilter.INSTANCE.getPolicy();
+                if ("BLOCK".equalsIgnoreCase(policy)) {
+                    System.out.println("Audit Blocked (Group): Message " + requestPacket.getMsgId() + " contains sensitive words " + filterResult.getMatchedWords() + ". Intercepting!");
+                    
+                    // Return blocked ACK packet back to sender
+                    com.im.protocol.command.AckPacket blockedAck = new com.im.protocol.command.AckPacket(requestPacket.getMsgId(), "SERVER");
+                    blockedAck.setStatus(5001);
+                    blockedAck.setMessage("消息包含安全违规内容，已拦截发送");
+                    ctx.channel().writeAndFlush(blockedAck);
+                    return;
+                } else if ("MASK".equalsIgnoreCase(policy)) {
+                    requestPacket.setMessage(filterResult.getFilteredText());
+                    System.out.println("Audit Masked (Group): Message " + requestPacket.getMsgId() + " masked to: " + filterResult.getFilteredText());
+                }
+            }
+        }
 
         // 2. Persist WebSocket group message into MySQL
         try {

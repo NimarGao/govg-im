@@ -36,4 +36,34 @@ public interface Command {
     // Group Read Receipts
     Byte GROUP_READ_RECEIPT_REQUEST = 28;
     Byte GROUP_READ_RECEIPT_RESPONSE = 29;
+
+    // Emoji Reactions
+    Byte MESSAGE_REACTION_REQUEST = 30;
+    Byte MESSAGE_REACTION_RESPONSE = 31;
+
+    // Voice/Video Call Signaling
+    Byte VOICE_CALL_REQUEST = 40;
+    Byte VOICE_CALL_RESPONSE = 41;
+
+    // User Status & Subscription
+    Byte USER_STATUS_REQUEST = 42;
+    Byte USER_STATUS_RESPONSE = 43;
+
+    // Content Audit / Security Config
+    Byte AUDIT_CONFIG_REQUEST = 44;
+    Byte AUDIT_CONFIG_RESPONSE = 45;
+
+    // Desk Customer Service
+    Byte CUSTOM_DESK_REQUEST = 46;
+    Byte CUSTOM_DESK_RESPONSE = 47;
+
+    // Multi Voice Call (TUIRoomKit)
+    Byte MULTI_VOICE_CALL_REQUEST = 48;
+    Byte MULTI_VOICE_CALL_RESPONSE = 49;
+
+    // Friend / Relation Chain (TUIContact)
+    Byte FRIEND_ADD_REQUEST = 50;
+    Byte FRIEND_ADD_RESPONSE = 51;
+    Byte RELATION_ACTION_REQUEST = 52;
+    Byte RELATION_ACTION_RESPONSE = 53;
 }
