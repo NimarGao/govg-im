@@ -20,4 +20,10 @@ public interface Command {
     Byte ACK_PACKET = 13;
     Byte SYNC_MSG_REQUEST = 14; // Pull offline messages
     Byte SYNC_MSG_RESPONSE = 15;
+
+    // Advanced features: Read Receipts & Typing Status
+    Byte READ_RECEIPT_REQUEST = 16;
+    Byte READ_RECEIPT_RESPONSE = 17;
+    Byte TYPING_REQUEST = 18;
+    Byte TYPING_RESPONSE = 19;
 }

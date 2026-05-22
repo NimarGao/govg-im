@@ -371,10 +371,26 @@
                 <div v-if="msg.isSelf" class="msg-status-indicator">
                   <div v-if="msg.status === 'sending'" class="status-indicator-sending"></div>
                   <div v-else-if="msg.status === 'sent'" class="status-indicator-sent" title="已送达服务器">✓</div>
+                  <div v-else-if="msg.status === 'read'" class="status-indicator-read" title="对方已读">✓✓</div>
                 </div>
               </div>
 
             </div>
+
+            <!-- Typing Indicator (Facebook Messenger Style) -->
+            <div v-if="peerTyping" class="msg-bubble-wrapper animate-pop">
+              <div class="msg-row">
+                <div class="msg-avatar-circle">{{ currentSession ? currentSession.name[0].toUpperCase() : '?' }}</div>
+                <div class="msg-bubble-content">
+                  <div class="typing-indicator-bubble">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div id="scroll-bottom"></div>
           </div>
 
@@ -386,7 +402,7 @@
               <div class="tray-circle-btn" @click="msgContent += '😀'" title="Emoji">😀</div>
             </div>
             <div class="messenger-input-wrapper">
-              <input class="messenger-message-input" v-model="msgContent" placeholder="Aa" @keyup.enter="sendMsg" />
+              <input class="messenger-message-input" v-model="msgContent" placeholder="Aa" @keyup.enter="sendMsg" @input="handleInput" />
             </div>
             <div class="tray-right-actions">
               <button v-if="msgContent.trim()" class="messenger-send-btn" @click="sendMsg">
@@ -541,7 +557,10 @@ export default {
         { id: 'user3', name: '测试用户 3', online: false, node: 'N/A' }
       ],
       statusCheckTimer: null,
-      currentTheme: 'light'
+      currentTheme: 'light',
+      peerTyping: false,
+      typingTimer: null,
+      lastTypingTime: 0
     }
   },
   computed: {
@@ -738,13 +757,23 @@ export default {
       else if (packet.command === 4) { // MESSAGE_RESPONSE
         const sessionId = packet.fromUserId;
         const sessionName = packet.fromUserName || packet.fromUserId;
-        this.onReceiveMessage(sessionId, sessionName, 'user', packet.message, packet.fromUserId, packet.msgType, packet.fromUserName);
+        this.onReceiveMessage(sessionId, sessionName, 'user', packet.message, packet.fromUserId, packet.msgType, packet.fromUserName, packet.msgId);
         this.sendAck(packet.msgId);
+
+        // Clear typing status from peer when a real message arrives
+        if (this.currentSession && this.currentSession.id === sessionId) {
+          this.peerTyping = false;
+          if (this.typingTimer) {
+            clearTimeout(this.typingTimer);
+            this.typingTimer = null;
+          }
+          this.reportReadReceipt(sessionId);
+        }
       }
       else if (packet.command === 12) { // GROUP_MESSAGE_RESPONSE
         const sessionId = 'g:' + packet.fromGroupId;
         const senderName = packet.fromUser;
-        this.onReceiveMessage(sessionId, `群组 ${packet.fromGroupId}`, 'group', packet.message, senderName, packet.msgType);
+        this.onReceiveMessage(sessionId, `群组 ${packet.fromGroupId}`, 'group', packet.message, senderName, packet.msgType, null, packet.msgId);
       }
       else if (packet.command === 8) { // CREATE_GROUP_RESPONSE
         if (packet.success) {
@@ -798,13 +827,51 @@ export default {
           }
         }
       }
+      else if (packet.command === 17) { // READ_RECEIPT_RESPONSE
+        const peerUserId = packet.fromUserId;
+        const lastReadMsgId = packet.lastReadMsgId;
+        const list = this.messages[peerUserId];
+        if (list && lastReadMsgId) {
+          let updated = false;
+          let targetIndex = list.findIndex(m => m.msgId === lastReadMsgId);
+          if (targetIndex !== -1) {
+            for (let i = 0; i <= targetIndex; i++) {
+              if (list[i].isSelf && list[i].status !== 'read') {
+                list[i].status = 'read';
+                updated = true;
+              }
+            }
+          }
+          if (updated) {
+            this.saveData();
+            this.$forceUpdate();
+          }
+        }
+      }
+      else if (packet.command === 19) { // TYPING_RESPONSE
+        const fromUserId = packet.fromUserId;
+        if (this.currentSession && this.currentSession.id === fromUserId) {
+          this.peerTyping = true;
+          if (this.typingTimer) {
+            clearTimeout(this.typingTimer);
+          }
+          this.typingTimer = setTimeout(() => {
+            this.peerTyping = false;
+          }, 4000);
+          
+          if (this.isAtBottom) {
+            setTimeout(() => this.scrollToBottom(), 50);
+          }
+        }
+      }
     },
 
-    onReceiveMessage(sessionId, sessionName, type, content, senderName, msgType = 1, fromUserName = null) {
+    onReceiveMessage(sessionId, sessionName, type, content, senderName, msgType = 1, fromUserName = null, msgId = null) {
       if (!this.messages[sessionId]) {
         this.messages[sessionId] = [];
       }
       this.messages[sessionId].push({
+        msgId: msgId,
         sender: senderName,
         senderName: fromUserName,
         content: content,
@@ -864,8 +931,17 @@ export default {
       session.unread = 0;
       this.view = 'chat';
       this.scrollToBottom();
+      
+      if (this.typingTimer) {
+        clearTimeout(this.typingTimer);
+        this.typingTimer = null;
+      }
+      this.peerTyping = false;
+
       if (session.type === 'group') {
         this.fetchGroupMembers();
+      } else {
+        this.reportReadReceipt(session.id);
       }
     },
 
@@ -1048,6 +1124,45 @@ export default {
     joinGroup() {
       if (!this.targetGroupId) return;
       this.send({ command: 9, groupId: this.targetGroupId });
+    },
+
+    reportReadReceipt(sessionId) {
+      if (!this.isConnected || !this.isLogin) return;
+      if (sessionId.startsWith('g:')) return;
+      
+      const messages = this.messages[sessionId];
+      if (!messages || messages.length === 0) return;
+
+      let lastPeerMsg = null;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (!messages[i].isSelf && messages[i].msgId) {
+          lastPeerMsg = messages[i];
+          break;
+        }
+      }
+
+      if (lastPeerMsg) {
+        this.send({
+          command: 16,
+          toUserId: sessionId,
+          lastReadMsgId: lastPeerMsg.msgId
+        });
+        console.log(`[Read Receipt] Reported read up to ${lastPeerMsg.msgId} for session ${sessionId}`);
+      }
+    },
+
+    handleInput() {
+      if (!this.isConnected || !this.isLogin || !this.currentSession || this.currentSession.type === 'group') return;
+      
+      const now = Date.now();
+      if (now - this.lastTypingTime > 3000) {
+        this.lastTypingTime = now;
+        this.send({
+          command: 18,
+          toUserId: this.currentSession.id
+        });
+        console.log(`[Typing] Sent typing status to ${this.currentSession.id}`);
+      }
     },
 
     sendAck(msgId) {
@@ -3055,5 +3170,74 @@ export default {
     user-select: none;
     line-height: 1;
     transition: all 0.2s ease;
+  }
+
+  .status-indicator-read {
+    width: 14px;
+    height: 14px;
+    background: var(--active-blue);
+    color: #ffffff;
+    font-size: 8px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    user-select: none;
+    line-height: 1;
+    animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  }
+
+  @keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1.0); opacity: 1; }
+  }
+
+  /* ================= TYPING INDICATOR STYLE ================= */
+  .typing-indicator-bubble {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: var(--btn-hover);
+    padding: 10px 16px;
+    border-radius: 18px;
+    width: fit-content;
+    height: 36px;
+    box-sizing: border-box;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--text-desc);
+    border-radius: 50%;
+    animation: typingDot 1.4s infinite ease-in-out both;
+  }
+
+  .typing-dot:nth-child(1) {
+    animation-delay: 0s;
+  }
+
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes typingDot {
+    0%, 80%, 100% {
+      transform: scale(0.6);
+      opacity: 0.4;
+    }
+    40% {
+      transform: scale(1.2) translateY(-4px);
+      opacity: 1;
+    }
   }
 </style>

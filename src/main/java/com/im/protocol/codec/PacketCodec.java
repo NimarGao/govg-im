@@ -28,6 +28,10 @@ public class PacketCodec {
         packetTypeMap.put(Command.GROUP_MESSAGE_REQUEST, GroupMessageRequestPacket.class);
         packetTypeMap.put(Command.GROUP_MESSAGE_RESPONSE, GroupMessageResponsePacket.class);
         packetTypeMap.put(Command.ACK_PACKET, AckPacket.class);
+        packetTypeMap.put(Command.READ_RECEIPT_REQUEST, ReadReceiptRequestPacket.class);
+        packetTypeMap.put(Command.READ_RECEIPT_RESPONSE, ReadReceiptResponsePacket.class);
+        packetTypeMap.put(Command.TYPING_REQUEST, TypingRequestPacket.class);
+        packetTypeMap.put(Command.TYPING_RESPONSE, TypingResponsePacket.class);
 
         serializerMap = new HashMap<>();
         Serializer serializer = new Serializer.JSONSerializer();

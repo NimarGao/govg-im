@@ -2,8 +2,11 @@ package com.im.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.im.protocol.command.Command;
 import com.im.protocol.command.MessageResponsePacket;
 import com.im.protocol.command.GroupMessageResponsePacket;
+import com.im.protocol.command.ReadReceiptResponsePacket;
+import com.im.protocol.command.TypingResponsePacket;
 import com.im.util.SessionUtil;
 import io.netty.channel.group.ChannelGroup;
 import org.springframework.data.redis.connection.Message;
@@ -27,6 +30,35 @@ public class MessageRouteListener implements MessageListener {
             }
 
             JSONObject jsonObject = JSON.parseObject(jsonStr);
+
+            // Check if there is a specific command field (used for control packets like Read Receipt & Typing)
+            if (jsonObject.containsKey("command")) {
+                Byte command = jsonObject.getByte("command");
+                if (Command.READ_RECEIPT_RESPONSE.equals(command)) {
+                    String toUserId = jsonObject.getString("toUserId");
+                    String fromUserId = jsonObject.getString("fromUserId");
+                    String lastReadMsgId = jsonObject.getString("lastReadMsgId");
+
+                    ChannelGroup channelGroup = SessionUtil.getChannelGroup(toUserId);
+                    if (channelGroup != null && !channelGroup.isEmpty()) {
+                        System.out.println("Redis Route Match: Forwarding ReadReceiptResponse to User [" + toUserId + "] from User [" + fromUserId + "]");
+                        ReadReceiptResponsePacket packet = new ReadReceiptResponsePacket(fromUserId, lastReadMsgId);
+                        channelGroup.writeAndFlush(packet);
+                    }
+                    return;
+                } else if (Command.TYPING_RESPONSE.equals(command)) {
+                    String toUserId = jsonObject.getString("toUserId");
+                    String fromUserId = jsonObject.getString("fromUserId");
+
+                    ChannelGroup channelGroup = SessionUtil.getChannelGroup(toUserId);
+                    if (channelGroup != null && !channelGroup.isEmpty()) {
+                        System.out.println("Redis Route Match: Forwarding TypingResponse to User [" + toUserId + "] from User [" + fromUserId + "]");
+                        TypingResponsePacket packet = new TypingResponsePacket(fromUserId);
+                        channelGroup.writeAndFlush(packet);
+                    }
+                    return;
+                }
+            }
 
             // A. Handle Distributed Group Message Broadcast Route
             if (jsonObject.containsKey("toGroupId")) {

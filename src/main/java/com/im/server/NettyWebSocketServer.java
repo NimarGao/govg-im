@@ -60,6 +60,8 @@ public class NettyWebSocketServer {
                         ch.pipeline().addLast(JoinGroupRequestHandler.INSTANCE);
                         ch.pipeline().addLast(GroupMessageRequestHandler.INSTANCE);
                         ch.pipeline().addLast(AckHandler.INSTANCE);
+                        ch.pipeline().addLast(ReadReceiptRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(TypingRequestHandler.INSTANCE);
                     }
                 });
 
@@ -96,6 +98,10 @@ public class NettyWebSocketServer {
                 packet = json.toJavaObject(GroupMessageRequestPacket.class);
             } else if (Command.ACK_PACKET.equals(command)) {
                 packet = json.toJavaObject(AckPacket.class);
+            } else if (Command.READ_RECEIPT_REQUEST.equals(command)) {
+                packet = json.toJavaObject(ReadReceiptRequestPacket.class);
+            } else if (Command.TYPING_REQUEST.equals(command)) {
+                packet = json.toJavaObject(TypingRequestPacket.class);
             }
 
             if (packet != null) {
