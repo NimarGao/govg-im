@@ -19,6 +19,17 @@ public class JoinGroupRequestHandler extends SimpleChannelInboundHandler<JoinGro
 
         SessionUtil.bindChannelGroup(groupId, userId);
 
+        try {
+            org.springframework.data.redis.core.StringRedisTemplate redisTemplate = com.im.util.SpringContextHolder.getBean(org.springframework.data.redis.core.StringRedisTemplate.class);
+            if (redisTemplate != null) {
+                String groupKey = "im:group:members:" + groupId;
+                redisTemplate.opsForSet().add(groupKey, userId);
+                System.out.println("Redis Join Group Mapping Saved: User [" + userId + "] added to Group [" + groupId + "] globally.");
+            }
+        } catch (Exception ex) {
+            System.err.println("Failed to write joining group member to Redis Set: " + ex.getMessage());
+        }
+
         JoinGroupResponsePacket responsePacket = new JoinGroupResponsePacket();
         responsePacket.setGroupId(groupId);
         responsePacket.setSuccess(true);

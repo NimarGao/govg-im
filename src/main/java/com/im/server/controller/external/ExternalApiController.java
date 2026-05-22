@@ -151,4 +151,45 @@ public class ExternalApiController {
 
         return response;
     }
+
+    /**
+     * Get real members list for a group.
+     */
+    @GetMapping("/group/members")
+    public Map<String, Object> getGroupMembers(@RequestParam("groupId") String groupId) {
+        Map<String, Object> response = new HashMap<>();
+
+        if (groupId == null || groupId.trim().isEmpty()) {
+            response.put("success", false);
+            response.put("message", "groupId is required");
+            return response;
+        }
+
+        String groupKey = "im:group:members:" + groupId;
+        java.util.Set<String> memberIds = redisTemplate.opsForSet().members(groupKey);
+
+        java.util.List<Map<String, Object>> membersList = new java.util.ArrayList<>();
+        if (memberIds != null) {
+            for (String userId : memberIds) {
+                Map<String, Object> memberInfo = new HashMap<>();
+                memberInfo.put("userId", userId);
+
+                // Fetch real nickname
+                String profileKey = "im:user:profile:" + userId;
+                String username = redisTemplate.opsForValue().get(profileKey);
+                memberInfo.put("username", username != null ? username : userId);
+
+                // Online state
+                String sessionKey = SESSION_PREFIX + userId;
+                boolean online = redisTemplate.hasKey(sessionKey);
+                memberInfo.put("online", online);
+
+                membersList.add(memberInfo);
+            }
+        }
+
+        response.put("success", true);
+        response.put("members", membersList);
+        return response;
+    }
 }

@@ -323,7 +323,7 @@
             </div>
 
             <div class="header-actions">
-              <div class="header-icon-btn" @click="showRightPanel = !showRightPanel" title="会话信息">ℹ️</div>
+              <div class="header-icon-btn" @click="toggleRightPanel" title="会话信息">ℹ️</div>
             </div>
           </div>
 
@@ -365,6 +365,12 @@
                   <img v-if="msg.msgType === 2" :src="formatImageUrl(msg.content)" class="bubble-image-card" @click="previewImage(msg.content)" />
                   <!-- Text rendering -->
                   <span v-else :class="msg.content === '👍' ? 'giant-emoji-msg' : 'bubble-text-card'">{{ msg.content }}</span>
+                </div>
+
+                <!-- Status Indicators for self messages -->
+                <div v-if="msg.isSelf" class="msg-status-indicator">
+                  <div v-if="msg.status === 'sending'" class="status-indicator-sending"></div>
+                  <div v-else-if="msg.status === 'sent'" class="status-indicator-sent" title="已送达服务器">✓</div>
                 </div>
               </div>
 
@@ -417,11 +423,16 @@
           </div>
 
           <div class="right-section" v-if="currentSession.type === 'group'">
-            <span class="right-section-title">👥 群成员 (Mock)</span>
+            <span class="right-section-title">👥 真实群成员 ({{ currentGroupMembers.length }}人)</span>
             <div class="member-list-mini">
-              <div class="member-mini-card">
-                <span class="member-mini-avatar">我</span>
-                <span class="member-mini-name">我 (创建者)</span>
+              <div v-for="member in currentGroupMembers" :key="member.userId" class="member-mini-card">
+                <div class="member-mini-avatar-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center;">
+                  <span class="member-mini-avatar">{{ member.username ? member.username[0].toUpperCase() : 'U' }}</span>
+                  <span class="online-indicator-dot-mini" :style="{ background: member.online ? 'var(--active-green)' : '#bcc0c4' }" 
+                        style="position: absolute; bottom: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--bg-sidebar);"></span>
+                </div>
+                <span class="member-mini-name">{{ member.username }}</span>
+                <span class="member-mini-tag" v-if="member.userId === userId" style="font-size: 10px; background: var(--btn-hover); color: var(--text-desc); padding: 2px 6px; border-radius: 4px; margin-left: auto;">我</span>
               </div>
             </div>
           </div>
@@ -498,6 +509,7 @@ export default {
       sessions: [], // { id, name, type, lastMsg, time, unread }
       messages: {}, // { sessionId: [ { sender, content, msgType, time, isSelf } ] }
       currentSession: null,
+      currentGroupMembers: [],
 
       // Simulated Platform Tools Data
       simTokenUserId: 'dev_user_777',
@@ -772,6 +784,20 @@ export default {
           this.showCreateGroup = false;
         }
       }
+      else if (packet.command === 13) { // ACK_RESPONSE
+        const msgId = packet.msgId;
+        if (msgId) {
+          for (let sId in this.messages) {
+            const list = this.messages[sId];
+            const found = list.find(m => m.msgId === msgId);
+            if (found) {
+              found.status = 'sent';
+              this.saveData();
+              break;
+            }
+          }
+        }
+      }
     },
 
     onReceiveMessage(sessionId, sessionName, type, content, senderName, msgType = 1, fromUserName = null) {
@@ -838,6 +864,38 @@ export default {
       session.unread = 0;
       this.view = 'chat';
       this.scrollToBottom();
+      if (session.type === 'group') {
+        this.fetchGroupMembers();
+      }
+    },
+
+    fetchGroupMembers() {
+      if (!this.currentSession || this.currentSession.type !== 'group') return;
+      const rawId = this.currentSession.id.substring(2); // remove 'g:'
+      uni.request({
+        url: this.serverHttpUrl + '/api/external/group/members?groupId=' + rawId,
+        method: 'GET',
+        header: {
+          'Authorization': 'Bearer ' + this.externalApiKey
+        },
+        success: (res) => {
+          if (res.statusCode === 200 && res.data.success) {
+            this.currentGroupMembers = res.data.members;
+          } else {
+            console.error('Failed to load group members', res.data.message);
+          }
+        },
+        fail: (err) => {
+          console.error('Network error requesting group members', err);
+        }
+      });
+    },
+
+    toggleRightPanel() {
+      this.showRightPanel = !this.showRightPanel;
+      if (this.showRightPanel && this.currentSession && this.currentSession.type === 'group') {
+        this.fetchGroupMembers();
+      }
     },
 
     startNewChat() {
@@ -961,11 +1019,13 @@ export default {
         this.messages[session.id] = [];
       }
       this.messages[session.id].push({
+        msgId: msgId,
         sender: '我',
         content: content,
         msgType: msgType,
         time: this.formatTime(new Date()),
-        isSelf: true
+        isSelf: true,
+        status: 'sending'
       });
 
       session.lastMsg = msgType === 2 ? '[图片]' : content;
@@ -2957,5 +3017,43 @@ export default {
     max-width: 85%;
     word-break: break-all;
     line-height: 1.4;
+  }
+
+  /* ================= DELIVERY STATUS INDICATOR STYLE ================= */
+  .msg-status-indicator {
+    align-self: flex-end;
+    margin-bottom: 2px;
+    margin-left: 6px;
+    flex-shrink: 0;
+  }
+
+  @keyframes rotateStatus {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .status-indicator-sending {
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid var(--active-blue);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: rotateStatus 0.8s linear infinite;
+  }
+
+  .status-indicator-sent {
+    width: 14px;
+    height: 14px;
+    background: var(--border-color);
+    color: var(--bg-board);
+    font-size: 9px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    user-select: none;
+    line-height: 1;
+    transition: all 0.2s ease;
   }
 </style>

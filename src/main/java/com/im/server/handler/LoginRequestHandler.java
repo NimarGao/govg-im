@@ -1,7 +1,9 @@
 package com.im.server.handler;
 
+import com.alibaba.fastjson.JSONObject;
 import com.im.protocol.command.LoginRequestPacket;
 import com.im.protocol.command.LoginResponsePacket;
+import com.im.protocol.command.MessageResponsePacket;
 import com.im.util.Session;
 import com.im.util.SessionUtil;
 import com.im.util.SpringContextHolder;
@@ -81,9 +83,43 @@ public class LoginRequestHandler extends SimpleChannelInboundHandler<LoginReques
                 RedisService redisService = SpringContextHolder.getBean(RedisService.class);
                 String ip = InetAddress.getLocalHost().getHostAddress();
                 // We default to 10086 as TCP server port (Session will be mapped here)
-                redisService.saveSession(userId, ip, 10086);
+                if (redisService != null) {
+                    redisService.saveSession(userId, ip, 10086);
+                }
+
+                // Global profile caching
+                StringRedisTemplate redisTemplate = SpringContextHolder.getBean(StringRedisTemplate.class);
+                if (redisTemplate != null) {
+                    redisTemplate.opsForValue().set("im:user:profile:" + userId, username);
+
+                    // Pull Offline Messages from Redis
+                    String offlineKey = "im:offline:messages:" + userId;
+                    Long size = redisTemplate.opsForList().size(offlineKey);
+                    if (size != null && size > 0) {
+                        System.out.println("Offline Message Hub: Fetching " + size + " offline messages for User [" + userId + "]");
+                        for (int i = 0; i < size; i++) {
+                            String jsonStr = redisTemplate.opsForList().leftPop(offlineKey);
+                            if (jsonStr != null) {
+                                try {
+                                    JSONObject jsonObject = com.alibaba.fastjson.JSON.parseObject(jsonStr);
+                                    MessageResponsePacket packet = new MessageResponsePacket();
+                                    packet.setFromUserId(jsonObject.getString("fromUserId"));
+                                    packet.setFromUserName(jsonObject.getString("fromUserName"));
+                                    packet.setMessage(jsonObject.getString("message"));
+                                    packet.setMsgId(jsonObject.getString("msgId"));
+                                    packet.setMsgType(jsonObject.getInteger("msgType"));
+                                    
+                                    // Push to netty channel immediately
+                                    ctx.channel().writeAndFlush(packet);
+                                } catch (Exception ex) {
+                                    System.err.println("Offline Message Parse Failure: " + ex.getMessage());
+                                }
+                            }
+                        }
+                    }
+                }
             } catch (Exception e) {
-                System.err.println("Failed to save global session to Redis: " + e.getMessage());
+                System.err.println("Failed to process session bindings or pull offline messages in Redis: " + e.getMessage());
             }
         } else {
             loginResponsePacket.setSuccess(false);

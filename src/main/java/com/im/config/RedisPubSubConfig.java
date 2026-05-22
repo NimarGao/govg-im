@@ -12,6 +12,7 @@ import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 public class RedisPubSubConfig {
 
     public static final String ROUTE_CHANNEL = "im:route:channel";
+    public static final String ROUTE_GROUP_CHANNEL = "im:route:group";
 
     @Bean
     public RedisMessageListenerContainer container(RedisConnectionFactory connectionFactory,
@@ -19,6 +20,7 @@ public class RedisPubSubConfig {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         container.addMessageListener(listenerAdapter, new ChannelTopic(ROUTE_CHANNEL));
+        container.addMessageListener(listenerAdapter, new ChannelTopic(ROUTE_GROUP_CHANNEL));
         return container;
     }
 

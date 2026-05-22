@@ -38,6 +38,23 @@ public class CreateGroupRequestHandler extends SimpleChannelInboundHandler<Creat
             }
         }
 
+        // Global Redis registration for group membership
+        try {
+            org.springframework.data.redis.core.StringRedisTemplate redisTemplate = com.im.util.SpringContextHolder.getBean(org.springframework.data.redis.core.StringRedisTemplate.class);
+            if (redisTemplate != null) {
+                String groupKey = "im:group:members:" + groupId;
+                redisTemplate.opsForSet().add(groupKey, creatorId);
+                if (userIdList != null && !userIdList.isEmpty()) {
+                    for (String mId : userIdList) {
+                        redisTemplate.opsForSet().add(groupKey, mId);
+                    }
+                }
+                System.out.println("Redis Group Mapping Saved: Group [" + groupId + "] members registered globally.");
+            }
+        } catch (Exception ex) {
+            System.err.println("Failed to write group members to Redis Set: " + ex.getMessage());
+        }
+
         // 3. Response
         CreateGroupResponsePacket createGroupResponsePacket = new CreateGroupResponsePacket();
         createGroupResponsePacket.setSuccess(true);
