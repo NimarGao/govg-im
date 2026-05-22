@@ -12,6 +12,11 @@ public class MessageRequestPacket extends Packet {
     private String msgId; // Added for idempotency
     private Integer msgType = 1; // Default 1: Text
     
+    // Quoting fields
+    private String quoteMsgId;
+    private String quoteSender;
+    private String quoteContent;
+    
     public MessageRequestPacket(String toUserId, String message) {
         this.toUserId = toUserId;
         this.message = message;

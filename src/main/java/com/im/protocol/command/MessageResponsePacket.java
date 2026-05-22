@@ -10,6 +10,11 @@ public class MessageResponsePacket extends Packet {
     private String message;
     private String msgId;
     private Integer msgType = 1;
+    
+    // Quoting fields
+    private String quoteMsgId;
+    private String quoteSender;
+    private String quoteContent;
 
     @Override
     public Byte getCommand() {

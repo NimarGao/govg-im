@@ -21,4 +21,9 @@ public class Message implements Serializable {
     private Integer msgType; // 1: Text, 2: Image, 3: Audio
     private Integer status; // 0: Sent, 1: Delivered, 2: Read
     private Date createTime;
+    
+    // Quoting fields
+    private String quoteMsgId;
+    private String quoteSender;
+    private String quoteContent;
 }

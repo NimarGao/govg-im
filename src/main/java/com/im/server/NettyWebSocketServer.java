@@ -62,6 +62,9 @@ public class NettyWebSocketServer {
                         ch.pipeline().addLast(AckHandler.INSTANCE);
                         ch.pipeline().addLast(ReadReceiptRequestHandler.INSTANCE);
                         ch.pipeline().addLast(TypingRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(RecallRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(EditRequestHandler.INSTANCE);
+                        ch.pipeline().addLast(GroupReadReceiptRequestHandler.INSTANCE);
                     }
                 });
 
@@ -102,6 +105,12 @@ public class NettyWebSocketServer {
                 packet = json.toJavaObject(ReadReceiptRequestPacket.class);
             } else if (Command.TYPING_REQUEST.equals(command)) {
                 packet = json.toJavaObject(TypingRequestPacket.class);
+            } else if (Command.RECALL_REQUEST.equals(command)) {
+                packet = json.toJavaObject(RecallRequestPacket.class);
+            } else if (Command.EDIT_REQUEST.equals(command)) {
+                packet = json.toJavaObject(EditRequestPacket.class);
+            } else if (Command.GROUP_READ_RECEIPT_REQUEST.equals(command)) {
+                packet = json.toJavaObject(GroupReadReceiptRequestPacket.class);
             }
 
             if (packet != null) {

@@ -26,4 +26,14 @@ public interface Command {
     Byte READ_RECEIPT_RESPONSE = 17;
     Byte TYPING_REQUEST = 18;
     Byte TYPING_RESPONSE = 19;
+
+    // Recall & Edit
+    Byte RECALL_REQUEST = 21;
+    Byte RECALL_RESPONSE = 22;
+    Byte EDIT_REQUEST = 26;
+    Byte EDIT_RESPONSE = 27;
+
+    // Group Read Receipts
+    Byte GROUP_READ_RECEIPT_REQUEST = 28;
+    Byte GROUP_READ_RECEIPT_RESPONSE = 29;
 }

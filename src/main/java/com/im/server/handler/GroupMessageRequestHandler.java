@@ -22,13 +22,39 @@ public class GroupMessageRequestHandler extends SimpleChannelInboundHandler<Grou
         String groupId = requestPacket.getToGroupId();
         Session session = SessionUtil.getSession(ctx.channel());
 
-        // 2. Construct Broadcast Packet payload in JSON
+        // 2. Persist WebSocket group message into MySQL
+        try {
+            com.im.mapper.MessageMapper messageMapper = SpringContextHolder.getBean(com.im.mapper.MessageMapper.class);
+            if (messageMapper != null) {
+                com.im.entity.Message message = new com.im.entity.Message();
+                message.setMsgId(requestPacket.getMsgId());
+                message.setFromUserId(session.getUserId());
+                message.setToUserId(groupId);
+                message.setContent(requestPacket.getMessage());
+                message.setType(2); // 2: Group
+                message.setMsgType(requestPacket.getMsgType() != null ? requestPacket.getMsgType() : 1);
+                message.setStatus(0); // Sent
+                message.setCreateTime(new java.util.Date());
+                message.setQuoteMsgId(requestPacket.getQuoteMsgId());
+                message.setQuoteSender(requestPacket.getQuoteSender());
+                message.setQuoteContent(requestPacket.getQuoteContent());
+                messageMapper.insert(message);
+                System.out.println("Persistence: Group Message " + requestPacket.getMsgId() + " successfully saved to MySQL.");
+            }
+        } catch (Exception ex) {
+            System.err.println("Failed to persist Group WebSocket message to MySQL: " + ex.getMessage());
+        }
+
+        // 3. Construct Broadcast Packet payload in JSON
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("toGroupId", groupId);
         jsonObject.put("message", requestPacket.getMessage());
         jsonObject.put("fromUser", session.getUserId());
         jsonObject.put("msgId", requestPacket.getMsgId());
         jsonObject.put("msgType", requestPacket.getMsgType());
+        jsonObject.put("quoteMsgId", requestPacket.getQuoteMsgId());
+        jsonObject.put("quoteSender", requestPacket.getQuoteSender());
+        jsonObject.put("quoteContent", requestPacket.getQuoteContent());
 
         // 3. Publish to Redis channel to sync across all Netty server cluster instances
         try {
@@ -48,6 +74,9 @@ public class GroupMessageRequestHandler extends SimpleChannelInboundHandler<Grou
             responsePacket.setFromUser(session.getUserId());
             responsePacket.setMsgId(requestPacket.getMsgId());
             responsePacket.setMsgType(requestPacket.getMsgType());
+            responsePacket.setQuoteMsgId(requestPacket.getQuoteMsgId());
+            responsePacket.setQuoteSender(requestPacket.getQuoteSender());
+            responsePacket.setQuoteContent(requestPacket.getQuoteContent());
 
             java.util.Set<String> memberIds = SessionUtil.getGroupMembers(groupId);
             for (String memberId : memberIds) {

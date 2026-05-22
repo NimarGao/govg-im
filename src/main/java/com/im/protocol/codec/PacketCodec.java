@@ -33,6 +33,16 @@ public class PacketCodec {
         packetTypeMap.put(Command.TYPING_REQUEST, TypingRequestPacket.class);
         packetTypeMap.put(Command.TYPING_RESPONSE, TypingResponsePacket.class);
 
+        // Recall & Edit
+        packetTypeMap.put(Command.RECALL_REQUEST, RecallRequestPacket.class);
+        packetTypeMap.put(Command.RECALL_RESPONSE, RecallResponsePacket.class);
+        packetTypeMap.put(Command.EDIT_REQUEST, EditRequestPacket.class);
+        packetTypeMap.put(Command.EDIT_RESPONSE, EditResponsePacket.class);
+
+        // Group Read Receipts
+        packetTypeMap.put(Command.GROUP_READ_RECEIPT_REQUEST, GroupReadReceiptRequestPacket.class);
+        packetTypeMap.put(Command.GROUP_READ_RECEIPT_RESPONSE, GroupReadReceiptResponsePacket.class);
+
         serializerMap = new HashMap<>();
         Serializer serializer = new Serializer.JSONSerializer();
         serializerMap.put(serializer.getSerializerAlgorithm(), serializer);

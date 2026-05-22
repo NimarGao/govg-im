@@ -2,11 +2,7 @@ package com.im.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.im.protocol.command.Command;
-import com.im.protocol.command.MessageResponsePacket;
-import com.im.protocol.command.GroupMessageResponsePacket;
-import com.im.protocol.command.ReadReceiptResponsePacket;
-import com.im.protocol.command.TypingResponsePacket;
+import com.im.protocol.command.*;
 import com.im.util.SessionUtil;
 import io.netty.channel.group.ChannelGroup;
 import org.springframework.data.redis.connection.Message;
@@ -57,6 +53,90 @@ public class MessageRouteListener implements MessageListener {
                         channelGroup.writeAndFlush(packet);
                     }
                     return;
+                } else if (Command.RECALL_RESPONSE.equals(command)) {
+                    String msgId = jsonObject.getString("msgId");
+                    String toUserId = jsonObject.getString("toUserId");
+                    String toGroupId = jsonObject.getString("toGroupId");
+                    String fromUserId = jsonObject.getString("fromUserId");
+                    boolean success = jsonObject.getBooleanValue("success");
+
+                    RecallResponsePacket packet = new RecallResponsePacket(msgId, toUserId, toGroupId, fromUserId, success, null);
+                    
+                    if (toGroupId != null && !toGroupId.isEmpty()) {
+                        Set<String> memberIds = SessionUtil.getGroupMembers(toGroupId);
+                        if (memberIds != null) {
+                            for (String memberId : memberIds) {
+                                if (memberId.equals(fromUserId)) {
+                                    continue;
+                                }
+                                ChannelGroup channelGroup = SessionUtil.getChannelGroup(memberId);
+                                if (channelGroup != null && !channelGroup.isEmpty()) {
+                                    channelGroup.writeAndFlush(packet);
+                                }
+                            }
+                        }
+                    } else if (toUserId != null && !toUserId.isEmpty()) {
+                        ChannelGroup channelGroup = SessionUtil.getChannelGroup(toUserId);
+                        if (channelGroup != null && !channelGroup.isEmpty()) {
+                            channelGroup.writeAndFlush(packet);
+                        }
+                    }
+                    return;
+                } else if (Command.EDIT_RESPONSE.equals(command)) {
+                    String msgId = jsonObject.getString("msgId");
+                    String toUserId = jsonObject.getString("toUserId");
+                    String toGroupId = jsonObject.getString("toGroupId");
+                    String fromUserId = jsonObject.getString("fromUserId");
+                    String newContent = jsonObject.getString("newContent");
+                    boolean success = jsonObject.getBooleanValue("success");
+
+                    EditResponsePacket packet = new EditResponsePacket(msgId, toUserId, toGroupId, fromUserId, newContent, success, null);
+
+                    if (toGroupId != null && !toGroupId.isEmpty()) {
+                        Set<String> memberIds = SessionUtil.getGroupMembers(toGroupId);
+                        if (memberIds != null) {
+                            for (String memberId : memberIds) {
+                                if (memberId.equals(fromUserId)) {
+                                    continue;
+                                }
+                                ChannelGroup channelGroup = SessionUtil.getChannelGroup(memberId);
+                                if (channelGroup != null && !channelGroup.isEmpty()) {
+                                    channelGroup.writeAndFlush(packet);
+                                }
+                            }
+                        }
+                    } else if (toUserId != null && !toUserId.isEmpty()) {
+                        ChannelGroup channelGroup = SessionUtil.getChannelGroup(toUserId);
+                        if (channelGroup != null && !channelGroup.isEmpty()) {
+                            channelGroup.writeAndFlush(packet);
+                        }
+                    }
+                    return;
+                } else if (Command.GROUP_READ_RECEIPT_RESPONSE.equals(command)) {
+                    String groupId = jsonObject.getString("groupId");
+                    String msgId = jsonObject.getString("msgId");
+                    int readCount = jsonObject.getIntValue("readCount");
+                    
+                    com.alibaba.fastjson.JSONArray array = jsonObject.getJSONArray("readUserIds");
+                    java.util.Set<String> readUserIds = new java.util.HashSet<>();
+                    if (array != null) {
+                        for (int i = 0; i < array.size(); i++) {
+                            readUserIds.add(array.getString(i));
+                        }
+                    }
+
+                    GroupReadReceiptResponsePacket packet = new GroupReadReceiptResponsePacket(groupId, msgId, readCount, readUserIds);
+
+                    Set<String> memberIds = SessionUtil.getGroupMembers(groupId);
+                    if (memberIds != null) {
+                        for (String memberId : memberIds) {
+                            ChannelGroup channelGroup = SessionUtil.getChannelGroup(memberId);
+                            if (channelGroup != null && !channelGroup.isEmpty()) {
+                                channelGroup.writeAndFlush(packet);
+                            }
+                        }
+                    }
+                    return;
                 }
             }
 
@@ -76,6 +156,9 @@ public class MessageRouteListener implements MessageListener {
                     responsePacket.setFromUser(fromUser);
                     responsePacket.setMsgId(msgId);
                     responsePacket.setMsgType(msgType != null ? msgType : 1);
+                    responsePacket.setQuoteMsgId(jsonObject.getString("quoteMsgId"));
+                    responsePacket.setQuoteSender(jsonObject.getString("quoteSender"));
+                    responsePacket.setQuoteContent(jsonObject.getString("quoteContent"));
 
                     for (String memberId : memberIds) {
                         // Skip sender to avoid echoed message (sender already renders locally)
@@ -112,6 +195,9 @@ public class MessageRouteListener implements MessageListener {
                     packet.setMessage(msgContent);
                     packet.setMsgId(msgId);
                     packet.setMsgType(msgType != null ? msgType : 1);
+                    packet.setQuoteMsgId(jsonObject.getString("quoteMsgId"));
+                    packet.setQuoteSender(jsonObject.getString("quoteSender"));
+                    packet.setQuoteContent(jsonObject.getString("quoteContent"));
                     
                     channelGroup.writeAndFlush(packet);
                 }

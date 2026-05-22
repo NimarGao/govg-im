@@ -192,4 +192,54 @@ public class ExternalApiController {
         response.put("members", membersList);
         return response;
     }
+
+    /**
+     * Get historical messages.
+     */
+    @GetMapping("/message/history")
+    public Map<String, Object> getMessageHistory(
+            @RequestParam("userId") String userId,
+            @RequestParam("peerId") String peerId,
+            @RequestParam("type") Integer type,
+            @RequestParam(value = "beforeTime", required = false) Long beforeTime,
+            @RequestParam(value = "limit", defaultValue = "20") Integer limit) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        if (userId == null || userId.trim().isEmpty() || peerId == null || peerId.trim().isEmpty() || type == null) {
+            response.put("success", false);
+            response.put("message", "Missing required parameters");
+            return response;
+        }
+
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Message> queryWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        
+        if (type == 1) {
+            // Single chat: (from = A AND to = B) OR (from = B AND to = A)
+            queryWrapper.and(wrapper -> wrapper
+                .eq("from_user_id", userId).eq("to_user_id", peerId).eq("type", 1)
+                .or()
+                .eq("from_user_id", peerId).eq("to_user_id", userId).eq("type", 1)
+            );
+        } else {
+            // Group chat: to_user_id = peerId
+            queryWrapper.eq("to_user_id", peerId).eq("type", 2);
+        }
+
+        if (beforeTime != null && beforeTime > 0) {
+            queryWrapper.lt("create_time", new Date(beforeTime));
+        }
+
+        queryWrapper.orderByDesc("create_time");
+        queryWrapper.last("LIMIT " + limit);
+
+        java.util.List<Message> list = messageMapper.selectList(queryWrapper);
+        
+        // Reverse list to be in chronological order
+        java.util.Collections.reverse(list);
+
+        response.put("success", true);
+        response.put("messages", list);
+        return response;
+    }
 }

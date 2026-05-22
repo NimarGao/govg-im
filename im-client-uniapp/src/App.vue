@@ -108,362 +108,70 @@
       <div class="middle-sidebar" :class="{ 'mobile-hidden': view === 'chat' }">
         
         <!-- Tab 1: Session Chat list -->
-        <div v-if="activeTab === 'chats'" class="full-height flex-col" style="position: relative;">
-          <div class="sidebar-header">
-            <span class="sidebar-title">Chats</span>
-            <div class="header-actions">
-              <div class="circle-action-btn" @click="showStartChat = true" title="发起私聊">💬</div>
-              <div class="circle-action-btn" @click="showCreateGroup = true" title="群组操作">+</div>
-            </div>
-          </div>
-          <div class="search-box">
-            <input class="glass-search" placeholder="搜索会话..." />
-          </div>
-
-          <!-- Horizontal Active Friends Scroll Rail (Facebook Messenger style) -->
-          <div class="active-friends-rail">
-            <div class="active-friend-item" v-for="friend in friendList" :key="friend.id" @click="startChatWith(friend.id)">
-              <div class="active-friend-avatar">
-                <span class="friend-letter">{{ friend.name[0].toUpperCase() }}</span>
-                <span class="online-indicator-dot" :class="{ active: friend.online }"></span>
-              </div>
-              <span class="active-friend-name">{{ friend.name.split(' ')[0] }}</span>
-            </div>
-          </div>
-
-          <div class="list-scroll-view">
-            <div v-if="sessions.length === 0" class="empty-list-tip">暂无活动会话</div>
-            <div v-for="(session, index) in sessions" :key="index" 
-                class="session-glass-card" :class="{ active: currentSession && currentSession.id === session.id }"
-                @click="openChat(session)">
-              <div class="avatar-circle">
-                {{ session.name[0].toUpperCase() }}
-                <span class="online-indicator active"></span>
-              </div>
-              <div class="session-info">
-                <div class="session-header-row">
-                  <span class="session-name">{{ session.name }}</span>
-                  <span class="session-time">{{ session.time }}</span>
-                </div>
-                <div class="session-body-row">
-                  <span class="session-preview">{{ session.lastMsg }}</span>
-                  <div v-if="session.unread > 0" class="unread-bubble">{{ session.unread }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Floating Action Button (Messenger Style) -->
-          <div class="messenger-fab-container" :class="{ active: showFabMenu }" @mouseleave="showFabMenu = false">
-            <div class="fab-submenu">
-              <div class="fab-submenu-item" @click="showCreateGroup = true; showFabMenu = false" title="群聊操作">
-                <span class="fab-submenu-label">创建或加入群聊</span>
-                <div class="fab-submenu-icon">👥</div>
-              </div>
-              <div class="fab-submenu-item" @click="showStartChat = true; showFabMenu = false" title="发起私聊">
-                <span class="fab-submenu-label">发起新私聊</span>
-                <div class="fab-submenu-icon">💬</div>
-              </div>
-            </div>
-            <div class="messenger-main-fab" @click="showFabMenu = !showFabMenu" :title="showFabMenu ? '关闭菜单' : '新建聊天/群组'">
-              <span class="main-fab-icon">+</span>
-            </div>
-          </div>
-        </div>
-
+        <t-u-i-conversation
+          v-if="activeTab === 'chats'"
+          :sessions="sessions"
+          :current-session="currentSession"
+          :friend-list="friendList"
+          v-model:showFabMenu="showFabMenu"
+          @open-chat="openChat"
+          @show-create-group="showCreateGroup = true"
+          @show-start-chat="showStartChat = true"
+          @start-chat-with="startChatWith"
+        />
 
         <!-- Tab 2: Contacts list -->
-        <div v-if="activeTab === 'contacts'" class="full-height flex-col">
-          <div class="sidebar-header">
-            <span class="sidebar-title">Contacts</span>
-          </div>
-          <div class="search-box">
-            <input class="glass-search" placeholder="搜索好友..." />
-          </div>
-          <div class="list-scroll-view">
-            <div class="contact-section-title">我的好友列表</div>
-            <div v-for="friend in friendList" :key="friend.id" class="contact-glass-card" @click="startChatWith(friend.id)">
-              <div class="avatar-circle font-bold">
-                {{ friend.name[0].toUpperCase() }}
-                <span class="online-indicator" :class="{ active: friend.online }"></span>
-              </div>
-              <div class="contact-info">
-                <span class="contact-name">{{ friend.name }}</span>
-                <span class="contact-status" :class="{ online: friend.online }">
-                  {{ friend.online ? '在线 (' + friend.node + ')' : '离线' }}
-                </span>
-              </div>
-              <div class="quick-chat-action">💬</div>
-            </div>
-          </div>
-        </div>
+        <t-u-i-contact
+          v-if="activeTab === 'contacts'"
+          :friend-list="friendList"
+          @start-chat-with="startChatWith"
+        />
 
-        <!-- Tab 3: Developer Platform Console -->
-        <div v-if="activeTab === 'console'" class="full-height flex-col">
-          <div class="sidebar-header">
-            <span class="sidebar-title">Dev Console</span>
-          </div>
-          <div class="list-scroll-view pad-15">
-            
-            <!-- Simulator 1: Token Ticket Generator -->
-            <div class="console-glass-card">
-              <span class="console-card-title">🔑 接口 1: Token 登录票据生成器</span>
-              <span class="console-card-desc">模拟外部项目后台，调用本 IM 接口获取授权凭证。</span>
-              
-              <div class="mini-form">
-                <input class="mini-input" v-model="simTokenUserId" placeholder="输入用户 ID" />
-                <input class="mini-input" v-model="simTokenUsername" placeholder="输入用户昵称" />
-                <button class="mini-btn" @click="simGenerateToken">调用申请 Token</button>
-              </div>
-
-              <div v-if="generatedToken" class="console-terminal">
-                <span class="terminal-text-cyan">Token 申请成功！</span>
-                <span class="terminal-text-white">Token: {{ generatedToken }}</span>
-                <button class="terminal-action-btn" @click="copyAndUseToken">复制并使用该 Token 登录</button>
-              </div>
-            </div>
-
-            <!-- Simulator 2: System Message Pusher -->
-            <div class="console-glass-card">
-              <span class="console-card-title">🔔 接口 2: 三方系统消息推送模拟</span>
-              <span class="console-card-desc">直接调用 REST API，利用 Redis 订阅机制跨实例强推送消息给客户端。</span>
-              
-              <div class="mini-form">
-                <input class="mini-input" v-model="simPushToUserId" placeholder="推送目标用户 ID (默认为我自己)" />
-                <input class="mini-input" v-model="simPushSender" placeholder="模拟三方推送系统名称" />
-                <textarea class="mini-textarea" v-model="simPushMsg" placeholder="请输入推送卡片内容..."></textarea>
-                <button class="mini-btn primary-glow" @click="simTriggerPush">触发外部系统推送</button>
-              </div>
-            </div>
-
-            <!-- Simulator 3: Online Status Scanner -->
-            <div class="console-glass-card">
-              <span class="console-card-title">🛰️ 接口 3: 全局在线状态探测仪</span>
-              <span class="console-card-desc">实时向 IM 查询任意用户的全局在线实例和路由状态。</span>
-              
-              <div class="mini-form">
-                <input class="mini-input" v-model="simCheckUserId" placeholder="输入待查询用户 ID" />
-                <button class="mini-btn" @click="simCheckOnline">查询在线状态</button>
-              </div>
-
-              <div v-if="onlineCheckResult" class="console-terminal">
-                <pre class="terminal-json">{{ onlineCheckResult }}</pre>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Tab 4: System Parameters Settings -->
-        <div v-if="activeTab === 'settings'" class="full-height flex-col">
-          <div class="sidebar-header">
-            <span class="sidebar-title">Settings</span>
-          </div>
-          <div class="list-scroll-view pad-15">
-            <!-- Theme Personalization Settings -->
-            <div class="console-glass-card">
-              <span class="console-card-title">🎨 主题个性化配置</span>
-              <span class="console-card-desc">切换 Messenger 的界面视觉风格，体验极致视觉。</span>
-              <div class="theme-switch-row" style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="theme-btn-rect" :class="{ active: currentTheme === 'light' }" @click="setTheme('light')">☀️ 经典明亮</button>
-                <button class="theme-btn-rect" :class="{ active: currentTheme === 'dark' }" @click="setTheme('dark')">🌙 极客暗黑</button>
-              </div>
-            </div>
-
-            <div class="console-glass-card">
-              <span class="console-card-title">⚙️ IM 服务物理节点配置</span>
-              <span class="console-card-desc">前端连接及调用外部接口的服务器地址参数。</span>
-              
-              <div class="glass-label-group">
-                <span class="glass-mini-label">HTTP REST API 地址</span>
-                <input class="mini-input" v-model="serverHttpUrl" />
-              </div>
-              
-              <div class="glass-label-group">
-                <span class="glass-mini-label">WebSocket 协议地址</span>
-                <input class="mini-input" v-model="serverWsUrl" />
-              </div>
-
-              <div class="glass-label-group">
-                <span class="glass-mini-label">模拟三方调用的 API Key</span>
-                <input class="mini-input" v-model="externalApiKey" placeholder="对应后端 application.yml 密钥" />
-              </div>
-
-              <button class="glass-btn primary-glow margin-top-15" @click="saveSettings">保存网络配置</button>
-            </div>
-
-            <div class="console-glass-card">
-              <span class="console-card-title">📱 关于 govg-im Client</span>
-              <div class="about-item">当前用户: <span class="font-bold text-white">{{ userId || '未登录' }}</span></div>
-              <div class="about-item">连接状态: <span :class="isConnected ? 'text-green' : 'text-red'">{{ isConnected ? 'ONLINE' : 'OFFLINE' }}</span></div>
-              <div class="about-item">开发框架: Vue 3 (Facebook Messenger High-Fidelity UI)</div>
-            </div>
-          </div>
-        </div>
+        <!-- Tab 3 & 4: Developer Platform Console & Settings -->
+        <t-u-i-dev-console
+          v-if="activeTab === 'console' || activeTab === 'settings'"
+          :active-tab="activeTab"
+          :generated-token="generatedToken"
+          :online-check-result="onlineCheckResult"
+          :current-theme="currentTheme"
+          :server-http-url="serverHttpUrl"
+          :server-ws-url="serverWsUrl"
+          :external-api-key="externalApiKey"
+          :is-connected="isConnected"
+          :user-id="userId"
+          @sim-generate-token="simGenerateToken"
+          @copy-and-use-token="copyAndUseToken"
+          @sim-trigger-push="simTriggerPush"
+          @sim-check-online="simCheckOnline"
+          @set-theme="setTheme"
+          @save-settings="saveSettings"
+        />
 
       </div>
 
       <!-- 3. RIGHT CORE CHAT AREA -->
-      <div class="chat-viewport" :class="{ 'mobile-active': view === 'chat' }">
-        <div v-if="currentSession" class="chat-frame">
-          <!-- Chat Header -->
-          <div class="chat-header-bar">
-            <div class="back-action-btn" @click="view = 'list'">
-              <span class="back-arrow">❮</span>
-              <span class="back-label">返回</span>
-              <span v-if="totalUnread > 0" class="header-unread-count">{{ totalUnread }}</span>
-            </div>
-            
-            <div class="header-user-info">
-              <span class="header-user-name">{{ currentSession.name }}</span>
-              <div class="header-user-status">
-                <span class="status-dot"></span>
-                Active Now
-              </div>
-            </div>
+      <t-u-i-chat
+        ref="tuiChat"
+        :current-session="currentSession"
+        :current-msgs="currentMsgs"
+        :peer-typing="peerTyping"
+        :current-group-members="currentGroupMembers"
+        :user-id="userId"
+        :username="username"
+        :server-http-url="serverHttpUrl"
+        :view="view"
+        :total-unread="totalUnread"
+        @back-to-list="view = 'list'"
+        @show-start-chat="showStartChat = true"
+        @choose-image="chooseImage"
+        @send-thumbs-up="sendThumbsUp"
+        @send-message="handleSendMessageEvent"
+        @send-edit-request="handleSendEditRequestEvent"
+        @send-recall-request="sendRecallRequest"
+        @clear-history="clearHistory"
+        @handle-input="handleInput"
+      />
 
-            <div class="header-actions">
-              <div class="header-icon-btn" @click="toggleRightPanel" title="会话信息">ℹ️</div>
-            </div>
-          </div>
-
-          <!-- Messages Scroller -->
-          <div class="chat-messages-scroller" @scroll="onScroll">
-            <div v-for="(msg, index) in currentMsgs" :key="index" class="msg-bubble-wrapper" 
-                :class="{ 'self-msg': msg.isSelf, 'system-push-msg': msg.sender === 'system_service' }" :id="'msg-'+index">
-              
-              <!-- Time Break -->
-              <div class="msg-time-divider" v-if="shouldShowTime(index)">{{ msg.time }}</div>
-              
-              <!-- 1. System Notification (Gray Centered Bubble) -->
-              <div v-if="msg.sender === 'system_notification'" class="system-notification-row animate-pop">
-                <span class="system-notification-text">{{ msg.content }}</span>
-              </div>
-
-              <!-- 2. Beautiful System Push Message Card -->
-              <div v-else-if="msg.sender === 'system_service'" class="system-push-card animate-pop">
-                <div class="system-card-header">
-                  <span class="system-card-icon">🔔</span>
-                  <div class="system-card-meta">
-                    <span class="system-card-title">{{ msg.senderName || '三方系统通知' }}</span>
-                    <span class="system-card-time">{{ msg.time }}</span>
-                  </div>
-                  <span class="system-badge">外部 API 推送</span>
-                </div>
-                <div class="system-card-body">
-                  {{ msg.content }}
-                </div>
-              </div>
-
-              <!-- 3. Normal Message Bubble Row -->
-              <div v-else class="msg-row">
-                <div class="msg-avatar-circle" v-if="!msg.isSelf">{{ msg.sender[0].toUpperCase() }}</div>
-                <div class="msg-bubble-content">
-                  <span class="sender-name-label" v-if="!msg.isSelf && currentSession.type === 'group'">{{ msg.sender }}</span>
-                  
-                  <!-- Image rendering -->
-                  <img v-if="msg.msgType === 2" :src="formatImageUrl(msg.content)" class="bubble-image-card" @click="previewImage(msg.content)" />
-                  <!-- Text rendering -->
-                  <span v-else :class="msg.content === '👍' ? 'giant-emoji-msg' : 'bubble-text-card'">{{ msg.content }}</span>
-                </div>
-
-                <!-- Status Indicators for self messages -->
-                <div v-if="msg.isSelf" class="msg-status-indicator">
-                  <div v-if="msg.status === 'sending'" class="status-indicator-sending"></div>
-                  <div v-else-if="msg.status === 'sent'" class="status-indicator-sent" title="已送达服务器">✓</div>
-                  <div v-else-if="msg.status === 'read'" class="status-indicator-read" title="对方已读">✓✓</div>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- Typing Indicator (Facebook Messenger Style) -->
-            <div v-if="peerTyping" class="msg-bubble-wrapper animate-pop">
-              <div class="msg-row">
-                <div class="msg-avatar-circle">{{ currentSession ? currentSession.name[0].toUpperCase() : '?' }}</div>
-                <div class="msg-bubble-content">
-                  <div class="typing-indicator-bubble">
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div id="scroll-bottom"></div>
-          </div>
-
-          <!-- Bottom Input Tray (Facebook Messenger High-Fidelity Style) -->
-          <div class="bottom-input-tray">
-            <div class="tray-left-actions">
-              <div class="tray-circle-btn" @click="showStartChat = true" title="新会话">➕</div>
-              <div class="tray-circle-btn" @click="chooseImage" title="发送图片">📷</div>
-              <div class="tray-circle-btn" @click="msgContent += '😀'" title="Emoji">😀</div>
-            </div>
-            <div class="messenger-input-wrapper">
-              <input class="messenger-message-input" v-model="msgContent" placeholder="Aa" @keyup.enter="sendMsg" @input="handleInput" />
-            </div>
-            <div class="tray-right-actions">
-              <button v-if="msgContent.trim()" class="messenger-send-btn" @click="sendMsg">
-                <span class="send-arrow-icon">➔</span>
-              </button>
-              <div v-else class="messenger-thumbs-btn" @click="sendThumbsUp" title="发送点赞">👍</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Empty Chat View -->
-        <div v-else class="chat-empty-fallback">
-          <div class="fallback-glow-badge">💬</div>
-          <span class="fallback-title">欢迎使用 govg-im Messenger</span>
-          <span class="fallback-desc">点击左侧会话发起聊天，或者在“测试台”调用系统 API 模拟即时通讯。</span>
-        </div>
-      </div>
-
-      <!-- 4. RIGHT CHAT DETAIL SIDEBAR (INFO PANEL) -->
-      <div v-if="currentSession && showRightPanel" class="right-info-sidebar">
-        <div class="full-height flex-col pad-20" style="overflow-y: auto;">
-          <div class="right-profile-header">
-            <div class="big-profile-avatar">{{ currentSession.name[0].toUpperCase() }}</div>
-            <span class="right-profile-name">{{ currentSession.name }}</span>
-            <span class="right-profile-id">ID: {{ currentSession.id }}</span>
-          </div>
-
-          <div class="right-divider"></div>
-
-          <div class="right-section">
-            <span class="right-section-title">⚙️ 会话操作</span>
-            <div class="glass-menu-item" @click="clearHistory">🗑️ 清除聊天记录</div>
-            <div class="glass-menu-item" @click="copySessionId">📋 复制会话 ID</div>
-          </div>
-
-          <div class="right-section" v-if="currentSession.type === 'group'">
-            <span class="right-section-title">👥 真实群成员 ({{ currentGroupMembers.length }}人)</span>
-            <div class="member-list-mini">
-              <div v-for="member in currentGroupMembers" :key="member.userId" class="member-mini-card">
-                <div class="member-mini-avatar-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center;">
-                  <span class="member-mini-avatar">{{ member.username ? member.username[0].toUpperCase() : 'U' }}</span>
-                  <span class="online-indicator-dot-mini" :style="{ background: member.online ? 'var(--active-green)' : '#bcc0c4' }" 
-                        style="position: absolute; bottom: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--bg-sidebar);"></span>
-                </div>
-                <span class="member-mini-name">{{ member.username }}</span>
-                <span class="member-mini-tag" v-if="member.userId === userId" style="font-size: 10px; background: var(--btn-hover); color: var(--text-desc); padding: 2px 6px; border-radius: 4px; margin-left: auto;">我</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="right-section">
-            <span class="right-section-title">🖼️ 共享的图片媒体</span>
-            <div class="shared-media-grid">
-              <div v-for="(img, idx) in sharedImages" :key="idx" class="shared-img-card" @click="previewImage(img)">
-                <img :src="img" class="shared-img-thumb" style="object-fit: cover;" />
-              </div>
-              <div v-if="sharedImages.length === 0" class="no-media-tip">暂无共享图片</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ================= START CHAT MODAL ================= -->
@@ -493,7 +201,18 @@
 </template>
 
 <script>
+import TUIConversation from './components/TUIConversation.vue';
+import TUIContact from './components/TUIContact.vue';
+import TUIDevConsole from './components/TUIDevConsole.vue';
+import TUIChat from './components/TUIChat.vue';
+
 export default {
+  components: {
+    TUIConversation,
+    TUIContact,
+    TUIDevConsole,
+    TUIChat
+  },
   data() {
     return {
       // Server Configuration
@@ -519,7 +238,6 @@ export default {
       showCreateGroup: false,
       showFabMenu: false,
       showStartChat: false,
-      showRightPanel: false,
 
       // Data Models
       sessions: [], // { id, name, type, lastMsg, time, unread }
@@ -539,13 +257,11 @@ export default {
       simCheckUserId: '',
       onlineCheckResult: '',
 
-      // Input Box
-      msgContent: '',
+      // Inputs
       targetGroupId: '',
       newChatId: '',
 
-      // Scroll states
-      scrollTop: 0,
+      // Scroll and state variables
       isAtBottom: true,
       newMsgCount: 0,
 
@@ -560,8 +276,11 @@ export default {
       currentTheme: 'light',
       peerTyping: false,
       typingTimer: null,
-      lastTypingTime: 0
-    }
+      lastTypingTime: 0,
+      
+      // Temporary quote reference for doSend
+      quotingMessage: null
+    };
   },
   computed: {
     currentMsgs() {
@@ -570,11 +289,6 @@ export default {
     },
     totalUnread() {
       return this.sessions.reduce((sum, s) => sum + (s.unread || 0), 0);
-    },
-    sharedImages() {
-      if (!this.currentSession) return [];
-      const list = this.messages[this.currentSession.id] || [];
-      return list.filter(m => m.msgType === 2).map(m => this.formatImageUrl(m.content));
     }
   },
   mounted() {
@@ -627,46 +341,23 @@ export default {
   },
   methods: {
     // Save network settings
-    saveSettings() {
+    saveSettings({ serverHttpUrl, serverWsUrl, externalApiKey }) {
+      this.serverHttpUrl = serverHttpUrl;
+      this.serverWsUrl = serverWsUrl;
+      this.externalApiKey = externalApiKey;
       uni.setStorageSync('im_server_http', this.serverHttpUrl);
       uni.setStorageSync('im_server_ws', this.serverWsUrl);
       uni.setStorageSync('im_api_key', this.externalApiKey);
       uni.showToast({ title: '配置保存成功，稍后生效！', icon: 'success' });
     },
 
-    // Scroller tracking
-    onScroll(e) {
-      const scrollEl = e.target;
-      const viewHeight = scrollEl.clientHeight;
-      const scrollHeight = scrollEl.scrollHeight;
-      const scrollTop = scrollEl.scrollTop;
-      if (scrollHeight - scrollTop - viewHeight < 60) {
-        this.isAtBottom = true;
-        this.newMsgCount = 0;
-      } else {
-        this.isAtBottom = false;
-      }
-    },
-
-    formatImageUrl(url) {
-      if (url.startsWith('/')) {
-        return this.serverHttpUrl + url;
-      }
-      return url;
+    formatTime(date) {
+      return date.getHours() + ':' + (date.getMinutes() < 10 ? '0' : '') + date.getMinutes();
     },
 
     saveData() {
       uni.setStorage({ key: 'im_sessions', data: this.sessions });
       uni.setStorage({ key: 'im_messages', data: this.messages });
-    },
-
-    formatTime(date) {
-      return date.getHours() + ':' + (date.getMinutes() < 10 ? '0' : '') + date.getMinutes();
-    },
-
-    shouldShowTime(index) {
-      if (index === 0) return true;
-      return index % 5 === 0;
     },
 
     copyId() {
@@ -677,16 +368,13 @@ export default {
       });
     },
 
-    copySessionId() {
-      if (!this.currentSession) return;
-      uni.setClipboardData({
-        data: this.currentSession.id,
-        success: () => uni.showToast({ title: '已复制会话 ID', icon: 'none' })
-      });
-    },
-
     // Connection socket
     connectSocket() {
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+
       let url = this.serverWsUrl;
       console.log('Connecting to WebSocket server: ' + url);
 
@@ -716,7 +404,13 @@ export default {
       this.socketTask.onClose(() => {
         this.isConnected = false;
         this.isLogin = false;
-        setTimeout(() => this.connectSocket(), 3000);
+        
+        this.reconnectAttempts = (this.reconnectAttempts || 0) + 1;
+        const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts));
+        console.warn(`WebSocket closed. Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`);
+        
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = setTimeout(() => this.connectSocket(), delay);
       });
     },
 
@@ -737,15 +431,22 @@ export default {
           if (packet.username) this.username = packet.username;
           
           this.simPushToUserId = this.userId;
+          this.reconnectAttempts = 0; // Reset reconnection attempts on success
           
           uni.showToast({ title: '成功安全接入 IM 系统', icon: 'success' });
           
-          // Auto-select last active session to avoid initial blank screen
-          setTimeout(() => {
-            if (this.sessions && this.sessions.length > 0) {
-              this.openChat(this.sessions[0]);
-            }
-          }, 300);
+          // If there is already an active session, sync history immediately on reconnect
+          if (this.currentSession) {
+            console.log(`Syncing active session history on reconnect: ${this.currentSession.id}`);
+            this.fetchMessageHistory(this.currentSession);
+          } else {
+            // Auto-select last active session to avoid initial blank screen
+            setTimeout(() => {
+              if (this.sessions && this.sessions.length > 0) {
+                this.openChat(this.sessions[0]);
+              }
+            }, 300);
+          }
         } else {
           uni.showModal({
             title: '连接拒绝',
@@ -757,7 +458,7 @@ export default {
       else if (packet.command === 4) { // MESSAGE_RESPONSE
         const sessionId = packet.fromUserId;
         const sessionName = packet.fromUserName || packet.fromUserId;
-        this.onReceiveMessage(sessionId, sessionName, 'user', packet.message, packet.fromUserId, packet.msgType, packet.fromUserName, packet.msgId);
+        this.onReceiveMessage(sessionId, sessionName, 'user', packet.message, packet.fromUserId, packet.msgType, packet.fromUserName, packet.msgId, packet.quoteMsgId, packet.quoteSender, packet.quoteContent);
         this.sendAck(packet.msgId);
 
         // Clear typing status from peer when a real message arrives
@@ -773,7 +474,11 @@ export default {
       else if (packet.command === 12) { // GROUP_MESSAGE_RESPONSE
         const sessionId = 'g:' + packet.fromGroupId;
         const senderName = packet.fromUser;
-        this.onReceiveMessage(sessionId, `群组 ${packet.fromGroupId}`, 'group', packet.message, senderName, packet.msgType, null, packet.msgId);
+        this.onReceiveMessage(sessionId, `群组 ${packet.fromGroupId}`, 'group', packet.message, senderName, packet.msgType, null, packet.msgId, packet.quoteMsgId, packet.quoteSender, packet.quoteContent);
+        
+        if (this.currentSession && this.currentSession.id === sessionId) {
+          this.reportGroupReadReceipt(sessionId, packet.msgId);
+        }
       }
       else if (packet.command === 8) { // CREATE_GROUP_RESPONSE
         if (packet.success) {
@@ -864,20 +569,86 @@ export default {
           }
         }
       }
+      else if (packet.command === 22) { // RECALL_RESPONSE
+        const msgId = packet.msgId;
+        const toGroupId = packet.toGroupId;
+        const fromUserId = packet.fromUserId;
+        const success = packet.success;
+        
+        if (success && msgId) {
+          const sessionId = toGroupId ? 'g:' + toGroupId : fromUserId;
+          const list = this.messages[sessionId];
+          if (list) {
+            const found = list.find(m => m.msgId === msgId);
+            if (found) {
+              found.status = 'recalled';
+              found.content = '[撤回消息]';
+              this.saveData();
+              this.$forceUpdate();
+            }
+          }
+        }
+      }
+      else if (packet.command === 27) { // EDIT_RESPONSE
+        const msgId = packet.msgId;
+        const toGroupId = packet.toGroupId;
+        const fromUserId = packet.fromUserId;
+        const newContent = packet.newContent;
+        const success = packet.success;
+        
+        if (success && msgId) {
+          const sessionId = toGroupId ? 'g:' + toGroupId : fromUserId;
+          const list = this.messages[sessionId];
+          if (list) {
+            const found = list.find(m => m.msgId === msgId);
+            if (found) {
+              found.content = newContent;
+              found.status = 'edited';
+              found.isEdited = true;
+              this.saveData();
+              this.$forceUpdate();
+            }
+          }
+        }
+      }
+      else if (packet.command === 29) { // GROUP_READ_RECEIPT_RESPONSE
+        const groupId = packet.groupId;
+        const msgId = packet.msgId;
+        const readCount = packet.readCount;
+        const readUserIds = packet.readUserIds || [];
+        
+        if (groupId && msgId) {
+          const sessionId = 'g:' + groupId;
+          const list = this.messages[sessionId];
+          if (list) {
+            const found = list.find(m => m.msgId === msgId);
+            if (found) {
+              found.readCount = readCount;
+              found.readUserIds = readUserIds;
+              this.saveData();
+              this.$forceUpdate();
+            }
+          }
+        }
+      }
     },
 
-    onReceiveMessage(sessionId, sessionName, type, content, senderName, msgType = 1, fromUserName = null, msgId = null) {
+    onReceiveMessage(sessionId, sessionName, type, content, senderName, msgType = 1, fromUserName = null, msgId = null, quoteMsgId = null, quoteSender = null, quoteContent = null) {
       if (!this.messages[sessionId]) {
         this.messages[sessionId] = [];
       }
       this.messages[sessionId].push({
         msgId: msgId,
         sender: senderName,
-        senderName: fromUserName,
+        senderName: fromUserName || senderName,
         content: content,
         msgType: msgType,
         time: this.formatTime(new Date()),
-        isSelf: false
+        createTimeMs: Date.now(),
+        isSelf: false,
+        quoteMsgId: quoteMsgId,
+        quoteSender: quoteSender,
+        quoteContent: quoteContent
       });
 
       let session = this.sessions.find(s => s.id === sessionId);
@@ -938,11 +709,84 @@ export default {
       }
       this.peerTyping = false;
 
+      // Pull latest history messages from MySQL on opening chat to sync state
+      this.fetchMessageHistory(session);
+
       if (session.type === 'group') {
         this.fetchGroupMembers();
+        // Sync group read status
+        setTimeout(() => {
+          const list = this.messages[session.id] || [];
+          if (list.length > 0) {
+            const lastMsg = list[list.length - 1];
+            if (!lastMsg.isSelf && lastMsg.msgId) {
+              this.reportGroupReadReceipt(session.id, lastMsg.msgId);
+            }
+          }
+        }, 800);
       } else {
         this.reportReadReceipt(session.id);
       }
+    },
+
+    fetchMessageHistory(session, beforeTime = null, limit = 20) {
+      if (!session) return;
+      const peerId = session.type === 'group' ? session.id.substring(2) : session.id;
+      const type = session.type === 'group' ? 2 : 1;
+      const beforeTimeParam = beforeTime ? `&beforeTime=${beforeTime}` : '';
+      
+      uni.request({
+        url: `${this.serverHttpUrl}/api/external/message/history?userId=${this.userId}&peerId=${peerId}&type=${type}${beforeTimeParam}&limit=${limit}`,
+        method: 'GET',
+        header: {
+          'Authorization': 'Bearer ' + this.externalApiKey
+        },
+        success: (res) => {
+          if (res.statusCode === 200 && res.data.success) {
+            const list = res.data.messages || [];
+            
+            const formatted = list.map(m => {
+              const isSelf = m.fromUserId === this.userId;
+              const statusMap = ['sending', 'sent', 'read', 'recalled'];
+              return {
+                msgId: m.msgId,
+                sender: isSelf ? '我' : m.fromUserId,
+                senderName: isSelf ? this.username : m.fromUserId,
+                content: m.content,
+                msgType: m.msgType || 1,
+                time: this.formatTime(new Date(m.createTime)),
+                createTimeMs: new Date(m.createTime).getTime(),
+                isSelf: isSelf,
+                status: m.status !== undefined ? (statusMap[m.status] || 'read') : 'read',
+                quoteMsgId: m.quoteMsgId,
+                quoteSender: m.quoteSender,
+                quoteContent: m.quoteContent
+              };
+            });
+
+            if (!this.messages[session.id]) {
+              this.messages[session.id] = [];
+            }
+
+            if (beforeTime) {
+              const existingIds = new Set(this.messages[session.id].map(m => m.msgId));
+              const filtered = formatted.filter(m => !existingIds.has(m.msgId));
+              this.messages[session.id] = [...filtered, ...this.messages[session.id]];
+            } else {
+              const existingIds = new Set(this.messages[session.id].map(m => m.msgId));
+              const filtered = formatted.filter(m => !existingIds.has(m.msgId));
+              this.messages[session.id] = [...this.messages[session.id], ...filtered];
+              this.messages[session.id].sort((a, b) => (a.createTimeMs || 0) - (b.createTimeMs || 0));
+              setTimeout(() => this.scrollToBottom(), 50);
+            }
+            this.saveData();
+            this.$forceUpdate();
+          }
+        },
+        fail: (err) => {
+          console.error('Failed to load message history', err);
+        }
+      });
     },
 
     fetchGroupMembers() {
@@ -965,13 +809,6 @@ export default {
           console.error('Network error requesting group members', err);
         }
       });
-    },
-
-    toggleRightPanel() {
-      this.showRightPanel = !this.showRightPanel;
-      if (this.showRightPanel && this.currentSession && this.currentSession.type === 'group') {
-        this.fetchGroupMembers();
-      }
     },
 
     startNewChat() {
@@ -1036,10 +873,22 @@ export default {
       });
     },
 
-    sendMsg() {
-      if (!this.msgContent) return;
-      this.doSend(this.msgContent, 1);
-      this.msgContent = '';
+    handleSendMessageEvent({ content, quote }) {
+      if (quote) {
+        this.quotingMessage = {
+          msgId: quote.msgId,
+          sender: quote.sender,
+          senderName: quote.sender,
+          content: quote.content
+        };
+      } else {
+        this.quotingMessage = null;
+      }
+      this.doSend(content, 1);
+    },
+
+    handleSendEditRequestEvent({ msg, newContent }) {
+      this.sendEditRequest(msg, newContent);
     },
 
     chooseImage() {
@@ -1089,32 +938,44 @@ export default {
         msgType: msgType
       };
 
+      if (this.quotingMessage) {
+        packet.quoteMsgId = this.quotingMessage.msgId;
+        packet.quoteSender = this.quotingMessage.senderName || this.quotingMessage.sender;
+        packet.quoteContent = this.quotingMessage.content;
+      }
+
       this.send(packet);
 
       if (!this.messages[session.id]) {
         this.messages[session.id] = [];
       }
-      this.messages[session.id].push({
+      
+      const newMsg = {
         msgId: msgId,
         sender: '我',
+        senderName: this.username,
         content: content,
         msgType: msgType,
         time: this.formatTime(new Date()),
+        createTimeMs: Date.now(),
         isSelf: true,
         status: 'sending'
-      });
+      };
+
+      if (this.quotingMessage) {
+        newMsg.quoteMsgId = this.quotingMessage.msgId;
+        newMsg.quoteSender = this.quotingMessage.senderName || this.quotingMessage.sender;
+        newMsg.quoteContent = this.quotingMessage.content;
+        this.quotingMessage = null;
+      }
+
+      this.messages[session.id].push(newMsg);
 
       session.lastMsg = msgType === 2 ? '[图片]' : content;
       session.time = this.formatTime(new Date());
       this.saveData();
 
       setTimeout(() => this.scrollToBottom(), 50);
-    },
-
-    previewImage(url) {
-      uni.previewImage({
-        urls: [url]
-      });
     },
 
     createGroup() {
@@ -1186,15 +1047,18 @@ export default {
       });
     },
 
-    clearHistory() {
+    clearHistory(session) {
+      const activeSession = session || this.currentSession;
+      if (!activeSession) return;
+      
       uni.showModal({
         title: '清除聊天',
         content: '确定要清空与当前用户的聊天记录吗？',
         success: (res) => {
           if (res.confirm) {
-            this.messages[this.currentSession.id] = [];
-            const session = this.sessions.find(s => s.id === this.currentSession.id);
-            if (session) session.lastMsg = '聊天记录已清空';
+            this.messages[activeSession.id] = [];
+            const sess = this.sessions.find(s => s.id === activeSession.id);
+            if (sess) sess.lastMsg = '聊天记录已清空';
             this.saveData();
           }
         }
@@ -1236,12 +1100,10 @@ export default {
       });
     },
 
-    // ==========================================
-    // 🛠️ DEVELOPER TESTING CONSOLE METHODS 🛠️
-    // ==========================================
-
-    simGenerateToken() {
-      if (!this.simTokenUserId) {
+    simGenerateToken({ userId, username }) {
+      this.simTokenUserId = userId;
+      this.simTokenUsername = username;
+      if (!userId) {
         uni.showToast({ title: '请输入生成 Token 的用户 ID', icon: 'none' });
         return;
       }
@@ -1253,8 +1115,8 @@ export default {
           'Content-Type': 'application/json'
         },
         data: {
-          userId: this.simTokenUserId,
-          username: this.simTokenUsername
+          userId: userId,
+          username: username
         },
         success: (res) => {
           if (res.statusCode === 200 && res.data.success) {
@@ -1274,13 +1136,13 @@ export default {
       });
     },
 
-    copyAndUseToken() {
-      if (!this.generatedToken) return;
+    copyAndUseToken(token) {
+      if (!token) return;
       uni.setClipboardData({
-        data: this.generatedToken,
+        data: token,
         success: () => {
           uni.showToast({ title: '已复制，自动填入输入框', icon: 'success' });
-          this.secureTokenInput = this.generatedToken;
+          this.secureTokenInput = token;
           this.loginMode = 'token';
           if (this.isLogin) {
             this.logout(); // trigger logout to let user re-login
@@ -1289,16 +1151,20 @@ export default {
       });
     },
 
-    simTriggerPush() {
-      const toId = this.simPushToUserId || this.userId;
+    simTriggerPush({ toUserId, senderName, message }) {
+      const toId = toUserId || this.userId;
       if (!toId) {
         uni.showToast({ title: '请指定推送的目标用户 ID', icon: 'none' });
         return;
       }
-      if (!this.simPushMsg) {
+      if (!message) {
         uni.showToast({ title: '请输入推送卡片的内容', icon: 'none' });
         return;
       }
+
+      this.simPushToUserId = toUserId;
+      this.simPushSender = senderName;
+      this.simPushMsg = message;
 
       uni.request({
         url: this.serverHttpUrl + '/api/external/message/send',
@@ -1310,8 +1176,8 @@ export default {
         data: {
           toUserId: toId,
           fromUserId: 'system_service',
-          fromUserName: this.simPushSender || '三方推送中心',
-          message: this.simPushMsg,
+          fromUserName: senderName || '三方推送中心',
+          message: message,
           msgType: 1
         },
         success: (res) => {
@@ -1331,14 +1197,15 @@ export default {
       });
     },
 
-    simCheckOnline() {
-      if (!this.simCheckUserId) {
+    simCheckOnline(userId) {
+      this.simCheckUserId = userId;
+      if (!userId) {
         uni.showToast({ title: '请输入要查询的用户 ID', icon: 'none' });
         return;
       }
 
       uni.request({
-        url: this.serverHttpUrl + '/api/external/user/status?userId=' + this.simCheckUserId,
+        url: this.serverHttpUrl + '/api/external/user/status?userId=' + userId,
         method: 'GET',
         header: {
           'Authorization': 'Bearer ' + this.externalApiKey
@@ -1394,6 +1261,72 @@ export default {
     },
     sendThumbsUp() {
       this.doSend('👍', 1);
+    },
+
+    sendEditRequest(msg, newContent) {
+      if (!msg || !newContent) return;
+      const session = this.currentSession;
+      const isGroup = session.type === 'group';
+      const targetId = isGroup ? session.id.substring(2) : session.id;
+      
+      const packet = {
+        command: 26, // EDIT_REQUEST
+        msgId: msg.msgId,
+        [isGroup ? 'toGroupId' : 'toUserId']: targetId,
+        newContent: newContent
+      };
+      
+      this.send(packet);
+      
+      // Update locally
+      msg.content = newContent;
+      msg.isEdited = true;
+      msg.status = 'edited';
+      this.saveData();
+      uni.showToast({ title: '消息已编辑', icon: 'success' });
+    },
+
+    sendRecallRequest(msg) {
+      if (!msg) return;
+      const timeDiff = Date.now() - (msg.createTimeMs || 0);
+      if (timeDiff > 120000) {
+        uni.showModal({
+          title: '撤回失败',
+          content: '发送时间已超过 2 分钟，无法撤回',
+          showCancel: false
+        });
+        return;
+      }
+      
+      const session = this.currentSession;
+      const isGroup = session.type === 'group';
+      const targetId = isGroup ? session.id.substring(2) : session.id;
+      
+      const packet = {
+        command: 21, // RECALL_REQUEST
+        msgId: msg.msgId,
+        [isGroup ? 'toGroupId' : 'toUserId']: targetId
+      };
+      
+      this.send(packet);
+      
+      // Update locally
+      msg.status = 'recalled';
+      msg.content = '[撤回消息]';
+      this.saveData();
+      uni.showToast({ title: '已撤回消息', icon: 'success' });
+    },
+
+    reportGroupReadReceipt(sessionId, msgId) {
+      if (!this.isConnected || !this.isLogin) return;
+      if (!sessionId.startsWith('g:') || !msgId) return;
+      const groupId = sessionId.substring(2);
+      this.send({
+        command: 28, // GROUP_READ_RECEIPT_REQUEST
+        groupId: groupId,
+        msgId: msgId
+      });
+      console.log(`[Group Read Receipt] Reported read for message ${msgId} in Group ${groupId}`);
     }
   }
 }
@@ -1401,10 +1334,10 @@ export default {
 
 <style>
   /* ==========================================
-     FACEBOOK MESSENGER PREMIUM DESIGN SYSTEM
+     GLOBAL APP LAYOUT & THEME VARIABLES
      ========================================== */
 
-  /* Global scrollbar styling - premium sleek minimalist */
+  /* Global sleek minimalist scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -1420,7 +1353,7 @@ export default {
     background: var(--text-desc);
   }
 
-  /* Reset & Container setup */
+  /* Reset & base viewport */
   #app, page {
     margin: 0;
     padding: 0;
@@ -1445,12 +1378,11 @@ export default {
     transition: background-color 0.3s ease;
   }
 
-  /* Hide decorative glow-orbs in clean solid design */
   .glow-orb {
     display: none !important;
   }
 
-  /* Core Palette Tokens (Light / Dark) */
+  /* Theme Configurations */
   .app-container.theme-light {
     --bg-app: #f0f2f5;
     --bg-board: #ffffff;
@@ -1511,7 +1443,7 @@ export default {
     --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.45);
   }
 
-  /* Utility classes */
+  /* Utility helpers */
   .font-bold { font-weight: bold; }
   .pad-15 { padding: 15px; }
   .pad-20 { padding: 20px; }
@@ -1538,7 +1470,7 @@ export default {
     animation: scaleUpPop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 
-  /* MESSENGER LOGIN SCREEN STYLING */
+  /* MESSENGER LOGIN SCREEN */
   .login-wrapper {
     z-index: 10;
     width: 90%;
@@ -1695,10 +1627,6 @@ export default {
     filter: brightness(1.08);
     transform: translateY(-1px);
   }
-  .glass-btn:active {
-    transform: translateY(0);
-    filter: brightness(0.95);
-  }
 
   .primary-glow {
     background: var(--active-blue) !important;
@@ -1728,7 +1656,7 @@ export default {
     box-shadow: 0 0 8px var(--active-green);
   }
 
-  /* MAIN APPLICATION WORKSPACE BOARD */
+  /* WORKBOARD MAIN FRAME */
   .app-glass-board {
     width: 94vw;
     height: 92vh;
@@ -1835,7 +1763,7 @@ export default {
     font-size: 22px;
   }
   .nav-label {
-    display: none; /* Hide descriptions to look modern */
+    display: none;
   }
 
   .unread-badge-mini {
@@ -1855,7 +1783,6 @@ export default {
     border: 2px solid var(--bg-sidebar);
   }
 
-  /* Sidebar bottom tools */
   .theme-toggle-sidebar-btn, .logout-btn {
     width: 44px;
     height: 44px;
@@ -1874,7 +1801,7 @@ export default {
     transform: rotate(15deg);
   }
 
-  /* 2. MIDDLE SIDEBAR (SESSION LIST AREA) */
+  /* 2. MIDDLE LISTING AREA */
   .middle-sidebar {
     width: 360px;
     background: var(--bg-middle);
@@ -1886,982 +1813,7 @@ export default {
     transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
-  .sidebar-header {
-    padding: 24px 20px 12px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .sidebar-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--text-title);
-    letter-spacing: -0.5px;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .circle-action-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--btn-hover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: var(--text-title);
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  .circle-action-btn:hover {
-    background: var(--btn-active);
-  }
-
-  .search-box {
-    padding: 4px 20px 12px 20px;
-  }
-
-  .glass-search {
-    width: 100%;
-    height: 36px;
-    border-radius: 20px;
-    background: var(--input-bg);
-    border: none;
-    outline: none;
-    padding: 0 16px;
-    color: var(--text-title);
-    font-size: 14px;
-    box-sizing: border-box;
-  }
-  .glass-search::placeholder {
-    color: var(--input-placeholder);
-  }
-
-  /* Facebook Messenger horizontal scroll bar: Active Friends */
-  .active-friends-rail {
-    display: flex;
-    gap: 16px;
-    padding: 4px 20px 16px 20px;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 8px;
-    flex-shrink: 0;
-  }
-  .active-friends-rail::-webkit-scrollbar {
-    display: none;
-  }
-
-  .active-friend-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    width: 56px;
-    flex-shrink: 0;
-  }
-
-  .active-friend-avatar {
-    position: relative;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--btn-hover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: var(--active-blue);
-    font-size: 16px;
-    transition: transform 0.2s ease;
-  }
-  .active-friend-item:hover .active-friend-avatar {
-    transform: scale(1.04);
-  }
-
-  .friend-letter {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-
-  .online-indicator-dot {
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    background: #bcc0c4;
-    border: 2px solid var(--bg-middle);
-  }
-  .online-indicator-dot.active {
-    background: var(--active-green);
-  }
-
-  .active-friend-name {
-    font-size: 12px;
-    color: var(--text-desc);
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: center;
-  }
-
-  .list-scroll-view {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .empty-list-tip {
-    text-align: center;
-    color: var(--text-desc);
-    font-size: 14px;
-    padding: 40px 20px;
-  }
-
-  /* Session Card List */
-  .session-glass-card {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    margin: 0 8px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    gap: 12px;
-  }
-  .session-glass-card:hover {
-    background: var(--btn-hover);
-  }
-  .session-glass-card.active {
-    background: var(--btn-hover);
-  }
-
-  .avatar-circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #0084ff 0%, #00c6ff 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: bold;
-    color: #ffffff;
-    position: relative;
-    flex-shrink: 0;
-  }
-
-  .session-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .session-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-  }
-
-  .session-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-title);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .session-time {
-    font-size: 12px;
-    color: var(--text-desc);
-  }
-
-  .session-body-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .session-preview {
-    font-size: 13px;
-    color: var(--text-desc);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    margin-right: 8px;
-  }
-
-  .unread-bubble {
-    background: var(--active-blue);
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: bold;
-    min-width: 18px;
-    height: 18px;
-    line-height: 18px;
-    border-radius: 9px;
-    text-align: center;
-    padding: 0 4px;
-    box-sizing: border-box;
-  }
-
-  /* Contact Tab Styles */
-  .contact-section-title {
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--text-desc);
-    text-transform: uppercase;
-    padding: 16px 20px 8px 20px;
-    letter-spacing: 0.5px;
-  }
-
-  .contact-glass-card {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    margin: 0 8px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    gap: 12px;
-  }
-  .contact-glass-card:hover {
-    background: var(--btn-hover);
-  }
-
-  .contact-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .contact-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-title);
-  }
-
-  .contact-status {
-    font-size: 12px;
-    color: var(--text-desc);
-  }
-  .contact-status.online {
-    color: var(--active-green);
-  }
-
-  .quick-chat-action {
-    font-size: 16px;
-    color: var(--text-desc);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-  .contact-glass-card:hover .quick-chat-action {
-    opacity: 1;
-  }
-
-  /* Developer console cards inside standard panels */
-  .console-glass-card {
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    box-sizing: border-box;
-  }
-
-  .console-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-title);
-    display: block;
-    margin-bottom: 6px;
-  }
-
-  .console-card-desc {
-    font-size: 12px;
-    color: var(--text-desc);
-    display: block;
-    margin-bottom: 12px;
-    line-height: 1.4;
-  }
-
-  .mini-form {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .mini-input, .mini-textarea {
-    background: var(--bg-board);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
-    color: var(--text-title);
-    outline: none;
-    box-sizing: border-box;
-    width: 100%;
-  }
-  .mini-textarea {
-    height: 60px;
-    resize: none;
-  }
-  .mini-input:focus, .mini-textarea:focus {
-    border-color: var(--active-blue);
-  }
-
-  .mini-btn {
-    background: var(--btn-hover);
-    color: var(--text-title);
-    border: 1px solid var(--border-color);
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-  }
-  .mini-btn:hover {
-    background: var(--btn-active);
-  }
-
-  .console-terminal {
-    background: var(--terminal-bg);
-    border-left: 3px solid var(--active-blue);
-    padding: 10px;
-    border-radius: 6px;
-    margin-top: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .terminal-text-cyan {
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--active-blue);
-  }
-
-  .terminal-text-white {
-    font-size: 11px;
-    word-break: break-all;
-    color: var(--terminal-text);
-    font-family: monospace;
-  }
-
-  .terminal-action-btn {
-    background: var(--active-blue);
-    color: #ffffff;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    align-self: flex-start;
-  }
-
-  .terminal-json {
-    font-family: monospace;
-    font-size: 11px;
-    background: transparent;
-    color: var(--terminal-text);
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-
-  .theme-switch-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .theme-btn-rect {
-    flex: 1;
-    background: var(--btn-hover);
-    border: 1px solid var(--border-color);
-    color: var(--text-title);
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  .theme-btn-rect.active {
-    background: var(--active-blue);
-    color: #ffffff;
-    border-color: var(--active-blue);
-  }
-
-  .glass-label-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 12px;
-  }
-
-  .glass-mini-label {
-    font-size: 11px;
-    font-weight: bold;
-    color: var(--text-desc);
-    text-transform: uppercase;
-  }
-
-  .about-item {
-    font-size: 13px;
-    color: var(--text-desc);
-    margin-bottom: 6px;
-  }
-
-  /* 3. RIGHT MAIN CHAT VIEWPORT PANEL */
-  .chat-viewport {
-    flex: 1;
-    background: var(--bg-chat-viewport);
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    min-width: 0;
-    transition: background-color 0.3s ease;
-  }
-
-  .chat-frame {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-width: 0;
-  }
-
-  .chat-header-bar {
-    height: 72px;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-chat-header);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    flex-shrink: 0;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
-  }
-
-  .back-action-btn {
-    display: none;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    color: var(--active-blue);
-    font-size: 15px;
-    margin-right: 12px;
-  }
-
-  .header-user-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .header-user-name {
-    font-size: 17px;
-    font-weight: 700;
-    color: var(--text-title);
-  }
-
-  .header-user-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: var(--text-desc);
-  }
-  .header-user-status .status-dot {
-    width: 8px;
-    height: 8px;
-    background: var(--active-green);
-  }
-
-  .header-icon-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--btn-hover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    cursor: pointer;
-    color: var(--active-blue);
-    transition: all 0.2s ease;
-  }
-  .header-icon-btn:hover {
-    background: var(--btn-active);
-  }
-
-  /* Message List Scroller Area */
-  .chat-messages-scroller {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    box-sizing: border-box;
-  }
-
-  .msg-bubble-wrapper {
-    display: flex;
-    flex-direction: column;
-    max-width: 65%;
-    align-self: flex-start;
-    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  .msg-bubble-wrapper.self-msg {
-    align-self: flex-end;
-  }
-
-  .msg-time-divider {
-    align-self: center;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--msg-time);
-    margin: 16px 0 8px 0;
-    text-align: center;
-    width: 100%;
-  }
-
-  .msg-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-  }
-  .self-msg .msg-row {
-    flex-direction: row-reverse;
-  }
-
-  .msg-avatar-circle {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--btn-hover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: bold;
-    color: var(--active-blue);
-    flex-shrink: 0;
-    margin-bottom: 2px;
-  }
-
-  .msg-bubble-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .sender-name-label {
-    font-size: 11px;
-    color: var(--text-desc);
-    margin-left: 12px;
-    margin-bottom: 2px;
-  }
-
-  /* Bubble design - capsule style with rich text rules */
-  .bubble-text-card {
-    background: var(--msg-other-bg);
-    color: var(--msg-other-text);
-    padding: 10px 16px;
-    border-radius: 18px;
-    font-size: 15px;
-    line-height: 1.4;
-    word-break: break-word;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-    display: inline-block;
-  }
-
-  .self-msg .bubble-text-card {
-    background: var(--msg-self-bg);
-    color: var(--msg-self-text);
-    box-shadow: 0 1px 3px rgba(0, 132, 255, 0.15);
-  }
-
-  .bubble-image-card {
-    max-width: 240px;
-    max-height: 180px;
-    border-radius: 12px;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: transform 0.2s ease;
-  }
-  .bubble-image-card:hover {
-    transform: scale(1.02);
-  }
-
-  /* Giant Thumbs Up! Single thumbs up emoji scales and pops out of background bubbles */
-  .giant-emoji-msg {
-    font-size: 48px !important;
-    background: transparent !important;
-    color: inherit !important;
-    border: none !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    display: inline-block;
-    user-select: none;
-    animation: scaleUpPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    cursor: default;
-  }
-
-  /* Premium system push message card */
-  .system-push-card {
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 14px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    margin: 10px 0;
-    max-width: 100%;
-    width: 320px;
-  }
-  .system-push-msg {
-    align-self: center;
-    max-width: 100%;
-  }
-
-  .system-card-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    gap: 8px;
-    position: relative;
-  }
-
-  .system-card-icon {
-    font-size: 20px;
-  }
-
-  .system-card-meta {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .system-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-title);
-  }
-
-  .system-card-time {
-    font-size: 11px;
-    color: var(--text-desc);
-  }
-
-  .system-badge {
-    background: var(--active-blue);
-    color: #ffffff;
-    font-size: 9px;
-    font-weight: bold;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-  }
-
-  .system-card-body {
-    font-size: 13px;
-    color: var(--text-desc);
-    line-height: 1.5;
-    word-break: break-all;
-  }
-
-  /* Bottom input bar: standard Aa text box with icon options */
-  .bottom-input-tray {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-chat-header);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
-  }
-
-  .tray-left-actions, .tray-right-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .tray-circle-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: var(--active-blue);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .tray-circle-btn:hover {
-    background: var(--btn-hover);
-    transform: scale(1.05);
-  }
-
-  .messenger-input-wrapper {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .messenger-message-input {
-    width: 100%;
-    height: 38px;
-    background: var(--input-bg);
-    border: 1px solid transparent;
-    border-radius: 20px;
-    padding: 0 16px;
-    color: var(--text-title);
-    font-size: 14px;
-    outline: none;
-    box-sizing: border-box;
-    transition: all 0.2s ease;
-  }
-  .messenger-message-input:focus {
-    background: var(--bg-chat-viewport);
-    border-color: var(--active-blue);
-  }
-
-  /* Interactive Send/Thumbs-up buttons with animations */
-  .messenger-send-btn {
-    background: var(--active-blue);
-    color: #ffffff;
-    border: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    animation: scaleUpPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-  .messenger-send-btn:hover {
-    transform: scale(1.08);
-  }
-
-  .send-arrow-icon {
-    font-size: 16px;
-    line-height: 1;
-  }
-
-  .messenger-thumbs-btn {
-    font-size: 24px;
-    cursor: pointer;
-    user-select: none;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-  }
-  .messenger-thumbs-btn:hover {
-    transform: scale(1.18) rotate(-10deg);
-  }
-
-  /* Chat Fallback background when no session is loaded */
-  .chat-empty-fallback {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    text-align: center;
-    background: var(--bg-chat-viewport);
-  }
-
-  .fallback-glow-badge {
-    font-size: 80px;
-    margin-bottom: 20px;
-    animation: scaleUpPop 0.6s cubic-bezier(0.16, 1, 0.3, 1) infinite alternate;
-  }
-
-  .fallback-title {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--text-title);
-    margin-bottom: 8px;
-  }
-
-  .fallback-desc {
-    font-size: 14px;
-    color: var(--text-desc);
-    max-width: 360px;
-    line-height: 1.5;
-  }
-
-  /* 4. RIGHT CHAT DETAIL SIDEBAR (INFO PANEL) */
-  .right-info-sidebar {
-    width: 320px;
-    background: var(--bg-sidebar);
-    border-left: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .right-profile-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 32px 16px 20px 16px;
-    text-align: center;
-  }
-
-  .big-profile-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--active-blue) 0%, #a855f7 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    font-weight: 800;
-    color: #ffffff;
-    margin-bottom: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  .right-profile-name {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-title);
-    margin-bottom: 4px;
-  }
-
-  .right-profile-id {
-    font-size: 12px;
-    color: var(--text-desc);
-  }
-
-  .right-divider {
-    height: 1px;
-    background: var(--border-color);
-    margin: 0 20px;
-  }
-
-  .right-section {
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .right-section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-desc);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-  }
-
-  .glass-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-size: 14px;
-    color: var(--text-title);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-weight: 500;
-  }
-  .glass-menu-item:hover {
-    background: var(--btn-hover);
-  }
-
-  .member-list-mini {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .member-mini-card {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px;
-  }
-
-  .member-mini-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--btn-hover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: bold;
-    color: var(--active-blue);
-  }
-
-  .member-mini-name {
-    font-size: 13px;
-    color: var(--text-title);
-  }
-
-  .shared-media-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-top: 4px;
-  }
-
-  .shared-img-card {
-    aspect-ratio: 1;
-    border-radius: 6px;
-    overflow: hidden;
-    cursor: pointer;
-    background: var(--btn-hover);
-    transition: transform 0.15s ease;
-  }
-  .shared-img-card:hover {
-    transform: scale(1.05);
-  }
-
-  .shared-img-thumb {
-    width: 100%;
-    height: 100%;
-  }
-
-  .no-media-tip {
-    grid-column: span 3;
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-desc);
-    padding: 20px 0;
-  }
-
-  /* MESSENGER CLEAN DIALOG MODAL BOXES */
+  /* 3. MODALS BACKDROP */
   .modal-backdrop {
     position: fixed;
     top: 0;
@@ -2874,7 +1826,6 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: pop 0.25s ease-out;
   }
 
   .modal-glass-card {
@@ -2895,6 +1846,7 @@ export default {
     font-weight: 700;
     color: var(--text-title);
     margin-bottom: 16px;
+    text-align: left;
   }
 
   .modal-actions-row {
@@ -2934,7 +1886,22 @@ export default {
     background: #0084ff !important;
   }
 
-  /* RESPONSIVE PHONE LAYOUT STYLING */
+  .mini-input {
+    background: var(--bg-board);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--text-title);
+    outline: none;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .mini-input:focus {
+    border-color: var(--active-blue);
+  }
+
+  /* Responsive layouts */
   @media (max-width: 960px) {
     .app-glass-board {
       width: 100vw;
@@ -2966,278 +1933,6 @@ export default {
     }
     .middle-sidebar.mobile-hidden {
       display: none !important;
-    }
-
-    .chat-viewport {
-      display: none !important;
-      width: calc(100vw - 60px);
-      position: absolute;
-      top: 0;
-      left: 60px;
-      right: 0;
-      bottom: 0;
-      z-index: 50;
-    }
-    .chat-viewport.mobile-active {
-      display: flex !important;
-    }
-
-    .back-action-btn {
-      display: flex;
-    }
-
-    .header-unread-count {
-      background: #f3565d;
-      color: #ffffff;
-      font-size: 10px;
-      font-weight: bold;
-      padding: 2px 6px;
-      border-radius: 8px;
-      margin-left: 6px;
-    }
-
-    .right-info-sidebar {
-      display: none !important;
-    }
-  }
-
-  /* ================= MESSENGER FAB STYLE ================= */
-  .messenger-fab-container {
-    position: absolute;
-    right: 24px;
-    bottom: 24px;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-  }
-
-  .messenger-main-fab {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #0084ff, #00c6ff);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 26px;
-    font-weight: 300;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 132, 255, 0.45);
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    user-select: none;
-  }
-
-  .messenger-main-fab:hover {
-    transform: scale(1.1) rotate(90deg);
-    box-shadow: 0 6px 22px rgba(0, 132, 255, 0.65);
-  }
-
-  .messenger-main-fab:active {
-    transform: scale(0.92) rotate(90deg);
-  }
-
-  .fab-submenu {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 12px;
-    margin-bottom: 14px;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(25px) scale(0.75);
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  }
-
-  .messenger-fab-container.active .fab-submenu {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0) scale(1);
-  }
-
-  .fab-submenu-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    padding: 0;
-  }
-
-  .fab-submenu-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--bg-middle);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  }
-
-  .fab-submenu-label {
-    background: var(--bg-middle);
-    color: var(--text-title);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 14px;
-    border-radius: 18px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--border-color);
-    white-space: nowrap;
-    opacity: 0;
-    transform: translateX(12px);
-    transition: all 0.25s ease;
-    pointer-events: none;
-  }
-
-  .fab-submenu-item:hover .fab-submenu-icon {
-    transform: scale(1.15);
-    background: var(--btn-hover);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-  }
-
-  .fab-submenu-item:hover .fab-submenu-label {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  /* ================= SYSTEM NOTIFICATION STYLE ================= */
-  .system-notification-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 18px 0;
-    padding: 0 24px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .system-notification-text {
-    background: var(--btn-hover);
-    color: var(--text-desc);
-    font-size: 12px;
-    font-weight: 500;
-    padding: 6px 18px;
-    border-radius: 16px;
-    border: 1px solid var(--border-color);
-    text-align: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-    letter-spacing: 0.2px;
-    max-width: 85%;
-    word-break: break-all;
-    line-height: 1.4;
-  }
-
-  /* ================= DELIVERY STATUS INDICATOR STYLE ================= */
-  .msg-status-indicator {
-    align-self: flex-end;
-    margin-bottom: 2px;
-    margin-left: 6px;
-    flex-shrink: 0;
-  }
-
-  @keyframes rotateStatus {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .status-indicator-sending {
-    width: 12px;
-    height: 12px;
-    border: 1.5px solid var(--active-blue);
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: rotateStatus 0.8s linear infinite;
-  }
-
-  .status-indicator-sent {
-    width: 14px;
-    height: 14px;
-    background: var(--border-color);
-    color: var(--bg-board);
-    font-size: 9px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    user-select: none;
-    line-height: 1;
-    transition: all 0.2s ease;
-  }
-
-  .status-indicator-read {
-    width: 14px;
-    height: 14px;
-    background: var(--active-blue);
-    color: #ffffff;
-    font-size: 8px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    user-select: none;
-    line-height: 1;
-    animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-  }
-
-  @keyframes bounceIn {
-    0% { transform: scale(0.3); opacity: 0; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1.0); opacity: 1; }
-  }
-
-  /* ================= TYPING INDICATOR STYLE ================= */
-  .typing-indicator-bubble {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    background: var(--btn-hover);
-    padding: 10px 16px;
-    border-radius: 18px;
-    width: fit-content;
-    height: 36px;
-    box-sizing: border-box;
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  }
-
-  .typing-dot {
-    width: 6px;
-    height: 6px;
-    background: var(--text-desc);
-    border-radius: 50%;
-    animation: typingDot 1.4s infinite ease-in-out both;
-  }
-
-  .typing-dot:nth-child(1) {
-    animation-delay: 0s;
-  }
-
-  .typing-dot:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  .typing-dot:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-
-  @keyframes typingDot {
-    0%, 80%, 100% {
-      transform: scale(0.6);
-      opacity: 0.4;
-    }
-    40% {
-      transform: scale(1.2) translateY(-4px);
-      opacity: 1;
     }
   }
 </style>

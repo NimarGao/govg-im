@@ -29,7 +29,30 @@ public class MessageRequestHandler extends SimpleChannelInboundHandler<MessageRe
         // 2. Persistence log simulation
         System.out.println("Persistence: Saving message " + messageRequestPacket.getMsgId() + " from " + session.getUserId());
 
-        // 3. Send ACK back to the Sender immediately to trigger client-side "Delivered" indicator
+        // 3. Persist WebSocket single message into MySQL
+        try {
+            com.im.mapper.MessageMapper messageMapper = SpringContextHolder.getBean(com.im.mapper.MessageMapper.class);
+            if (messageMapper != null) {
+                com.im.entity.Message message = new com.im.entity.Message();
+                message.setMsgId(messageRequestPacket.getMsgId());
+                message.setFromUserId(session.getUserId());
+                message.setToUserId(toUserId);
+                message.setContent(messageRequestPacket.getMessage());
+                message.setType(1); // 1: Single
+                message.setMsgType(messageRequestPacket.getMsgType() != null ? messageRequestPacket.getMsgType() : 1);
+                message.setStatus(0); // Sent
+                message.setCreateTime(new java.util.Date());
+                message.setQuoteMsgId(messageRequestPacket.getQuoteMsgId());
+                message.setQuoteSender(messageRequestPacket.getQuoteSender());
+                message.setQuoteContent(messageRequestPacket.getQuoteContent());
+                messageMapper.insert(message);
+                System.out.println("Persistence: Message " + messageRequestPacket.getMsgId() + " successfully saved to MySQL.");
+            }
+        } catch (Exception ex) {
+            System.err.println("Failed to persist WebSocket message to MySQL: " + ex.getMessage());
+        }
+
+        // 4. Send ACK back to the Sender immediately to trigger client-side "Delivered" indicator
         if (messageRequestPacket.getMsgId() != null) {
             AckPacket ackPacket = new AckPacket(messageRequestPacket.getMsgId(), "SERVER");
             ctx.channel().writeAndFlush(ackPacket);
@@ -43,6 +66,9 @@ public class MessageRequestHandler extends SimpleChannelInboundHandler<MessageRe
         jsonPayload.put("message", messageRequestPacket.getMessage());
         jsonPayload.put("msgId", messageRequestPacket.getMsgId());
         jsonPayload.put("msgType", messageRequestPacket.getMsgType() != null ? messageRequestPacket.getMsgType() : 1);
+        jsonPayload.put("quoteMsgId", messageRequestPacket.getQuoteMsgId());
+        jsonPayload.put("quoteSender", messageRequestPacket.getQuoteSender());
+        jsonPayload.put("quoteContent", messageRequestPacket.getQuoteContent());
 
         try {
             RedisService redisService = SpringContextHolder.getBean(RedisService.class);
@@ -78,6 +104,9 @@ public class MessageRequestHandler extends SimpleChannelInboundHandler<MessageRe
                 messageResponsePacket.setMessage(messageRequestPacket.getMessage());
                 messageResponsePacket.setMsgId(messageRequestPacket.getMsgId());
                 messageResponsePacket.setMsgType(messageRequestPacket.getMsgType());
+                messageResponsePacket.setQuoteMsgId(messageRequestPacket.getQuoteMsgId());
+                messageResponsePacket.setQuoteSender(messageRequestPacket.getQuoteSender());
+                messageResponsePacket.setQuoteContent(messageRequestPacket.getQuoteContent());
                 channelGroup.writeAndFlush(messageResponsePacket);
                 System.out.println("Standalone Fallback: Dispatched locally to online User [" + toUserId + "]");
             } else {
