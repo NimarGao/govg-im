@@ -2045,7 +2045,6 @@ export default {
       this.meetingOverlayVisible = false;
       this.meetingMembers = [];
     }
-    }
   }
 }
 </script>

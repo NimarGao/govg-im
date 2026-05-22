@@ -460,6 +460,7 @@
             无合并消息内容
           </div>
         </div>
+      </div>
     </div>
     
     <!-- ================= INSTAGRAM-STYLE ALERT DIALOG (BLOCK / SECURE) ================= -->
