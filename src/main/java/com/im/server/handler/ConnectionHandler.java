@@ -14,13 +14,21 @@ public class ConnectionHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (SessionUtil.hasLogin(ctx.channel())) {
-            Session session = SessionUtil.getSession(ctx.channel());
+            com.im.util.Session session = SessionUtil.getSession(ctx.channel());
             System.out.println("User [" + session.getUserName() + "] disconnected.");
             
-            // Notify friends logic here
-            // UserService.notifyFriends(session.getUserId(), "OFFLINE");
-            
             SessionUtil.unbindSession(ctx.channel());
+            
+            // If all devices of the user disconnected, remove the Redis session
+            if (SessionUtil.getChannelGroup(session.getUserId()) == null) {
+                try {
+                    com.im.util.redis.RedisService redisService = com.im.util.SpringContextHolder.getBean(com.im.util.redis.RedisService.class);
+                    redisService.removeSession(session.getUserId());
+                    System.out.println("Global Redis Session cleared for User: " + session.getUserId());
+                } catch (Exception e) {
+                    System.err.println("Error removing global Redis session: " + e.getMessage());
+                }
+            }
         }
         super.channelInactive(ctx);
     }

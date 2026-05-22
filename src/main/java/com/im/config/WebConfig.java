@@ -1,7 +1,9 @@
 package com.im.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -16,6 +18,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${im.upload.url-prefix:/uploads}")
     private String urlPrefix;
 
+    @Autowired
+    private ApiKeyInterceptor apiKeyInterceptor;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 确保路径以 / 结尾，并且加上 file: 前缀
@@ -29,5 +34,11 @@ public class WebConfig implements WebMvcConfigurer {
         
         registry.addResourceHandler(urlPrefix + "/**")
                 .addResourceLocations("file:" + path);
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(apiKeyInterceptor)
+                .addPathPatterns("/api/external/**");
     }
 }

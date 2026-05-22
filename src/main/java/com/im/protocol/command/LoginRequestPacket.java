@@ -8,6 +8,7 @@ public class LoginRequestPacket extends Packet {
     private String userId;
     private String username;
     private String password;
+    private String token;
 
     @Override
     public Byte getCommand() {

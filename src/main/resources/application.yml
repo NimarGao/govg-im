@@ -36,3 +36,6 @@ im:
     enabled: ${ZOOKEEPER_ENABLED:false}
     connect-string: ${ZOOKEEPER_HOST:localhost}:${ZOOKEEPER_PORT:2181}
     session-timeout: 5000
+  external:
+    api-key: ${IM_EXTERNAL_API_KEY:your-default-secure-key}
+
